@@ -1,25 +1,9 @@
-# MjFSv2Lib
+# MjFSv2
 
-This project includes all the re-usable classes used by the MjFS system. What follows is a short description of each package and what the classes inside the package are supposed to represent / do.
+MjFSv2 is a continuation of the MjFileSystem project, updated to work with the latest Dokan-Net rlease (1.1.0.0-rc3).
+MjFileSystem is a user-mode file system based on relational database technology. 
 
-## Database
-#### DatabaseOperations
-This class represents a connection to a SQLite database. It has a set of CRUD methods to alter Items and Tags in the database. 
-## Filesystem
-#### MjFileSystemOperations
-MjFS implementation of the IDokanOperations interface. This is the user-mode part of the Dokany file system which is specific to MjFS. This class relies heavily on the VolumeManager which enables it to communicate to the correct database files and find files efficiently.
+## The idea
+Just throw all your files in some folder on your root drive. Let's say we placed all our files in C:\bag. Now MjFS is able to index all the files in this directory. All files will be saved as an Item in the database. Now, MjFS will make all your files accessible by mounting them as a seperate drive, for example E:\. On E:\ you can now find all your files sorted by category (and possibly by any Tag you gave them). All audio files you just placed in C:\bag are nicely sorted in E:\music. And all those photos you took last year? They're all available at E:\pictures\2015. Through the power of SQLite it's very easy to find any file in the **bag**. By associating Tags with your files it is extremely easy to find them.
 
-## Manager
-#### DatabaseManager
-Internal class that manages the currently open SQLite connections and the corresponding DatabaseOperations objects.
 
-#### VolumeMountManager
-Entry point of the MjFS environment. This class finds configuration files for MjFS and connects volumes to database connections. Moreover, this class initializes the MjFileSystemOperations file system and mounts it.
-
-## Model
-#### Item
-Every file in a *bag* is saved as an Item in the database. An item keeps some essential information about the file it is associated with such as file size, file name and extension.
-
-#### Tag
-Every Item in the database can be tagged with a Tag. A Tag says something about the Item and Items can be queried by Tag.
-Each tag has a name by which it is identified.
