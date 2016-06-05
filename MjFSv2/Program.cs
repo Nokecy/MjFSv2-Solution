@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 namespace MjFSv2Lib {
 	class Program {
 		static void Main(string[] args) {
-			Console.WriteLine("MjFS v2 - A SQL based file system");
+			Console.WriteLine("MjFS v2 - An SQL based file system");
 			Console.WriteLine();
 
 
