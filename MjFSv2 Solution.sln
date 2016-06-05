@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.23107.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MjFSv2", "MjFSv2\MjFSv2.csproj", "{3B234C04-6045-4191-84F6-A681734B23C6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MjFSv2Watcher", "MjFSv2Watcher\MjFSv2Watcher.csproj", "{1F28EEDD-70E0-4E28-AA29-20A23A171865}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MjFSv2Lib", "MjFSv2Lib\MjFSv2Lib.csproj", "{CFAB9B2D-CE91-4705-830C-BF6E7FB04165}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3B234C04-6045-4191-84F6-A681734B23C6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3B234C04-6045-4191-84F6-A681734B23C6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3B234C04-6045-4191-84F6-A681734B23C6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3B234C04-6045-4191-84F6-A681734B23C6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1F28EEDD-70E0-4E28-AA29-20A23A171865}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1F28EEDD-70E0-4E28-AA29-20A23A171865}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1F28EEDD-70E0-4E28-AA29-20A23A171865}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1F28EEDD-70E0-4E28-AA29-20A23A171865}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CFAB9B2D-CE91-4705-830C-BF6E7FB04165}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CFAB9B2D-CE91-4705-830C-BF6E7FB04165}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CFAB9B2D-CE91-4705-830C-BF6E7FB04165}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CFAB9B2D-CE91-4705-830C-BF6E7FB04165}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
