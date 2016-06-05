@@ -13,6 +13,7 @@ using MjFSv2Lib.Model;
 
 namespace MjFSv2Lib.FileSystem {
 	class MjFileSystemOperations : IDokanOperations {
+		public string Drive { get; set; }
 		private static readonly string _volumeLabel = "DefaultBag";
 		private static readonly string _name = "MjFS";
 		public readonly VolumeMountManager volMan = VolumeMountManager.GetInstance();
@@ -58,18 +59,15 @@ namespace MjFSv2Lib.FileSystem {
 				} 
 			}
 
-			
-			return "C:\\"; // This seems to not crash explorer for non-existant files
+
+			return "";// This seems to not crash explorer for non-existant files
 		}
 
 		public IList<FileInformation> FindFilesHelper(string fileName, string searchPattern) {
 			DebugLogger.Log("Find files for '" + fileName + "' with pattern '" + searchPattern + "'");
 			List<FileInformation> result = new List<FileInformation>();
 
-			// Fake data for testing purposes only.
-			Item fakeItem = new Item("fake", "fake", "dat", 999, DateTime.Now, DateTime.Now, DateTime.Now, new FileAttributes());
-			result.Add(Helper.GetFileInformationFromItem(fakeItem));
-
+			
 			List<string> dupTags = new List<string>();
 
 			List<Tag> tags = Helper.GetTagsFromPath(fileName);
@@ -188,27 +186,48 @@ namespace MjFSv2Lib.FileSystem {
 		public NtStatus GetFileInformation(string fileName, out FileInformation fileInfo, DokanFileInfo info) {
 			// may be called with info.Context == null, but usually it isn't
 			string path = GetPath(fileName);
-			FileSystemInfo finfo = new FileInfo(path);
-			if (!finfo.Exists)
-				finfo = new DirectoryInfo(path);
 
-			fileInfo = new FileInformation {
-				FileName = fileName,
-				Attributes = finfo.Attributes,
-				CreationTime = finfo.CreationTime,
-				LastAccessTime = finfo.LastAccessTime,
-				LastWriteTime = finfo.LastWriteTime,
-				Length = (finfo is FileInfo) ? ((FileInfo)finfo).Length : 0,
-			};
+			if (path == "") {
+				
+				FileInformation finfo = new FileInformation();
+				finfo.FileName = "FAKE";
+				finfo.Attributes = System.IO.FileAttributes.Directory;
+				finfo.LastAccessTime = DateTime.Now;
+				finfo.LastWriteTime = DateTime.Now;
+				finfo.CreationTime = DateTime.Now;
+				fileInfo = finfo;
+			} else {
+				FileSystemInfo finfo = new FileInfo(path);
+				if (!finfo.Exists)
+					finfo = new DirectoryInfo(path);
+
+				fileInfo = new FileInformation {
+					FileName = fileName,
+					Attributes = finfo.Attributes,
+					CreationTime = finfo.CreationTime,
+					LastAccessTime = finfo.LastAccessTime,
+					LastWriteTime = finfo.LastWriteTime,
+					Length = (finfo is FileInfo) ? ((FileInfo)finfo).Length : 0,
+				};
+			}
+			
 			return DokanResult.Success;
 		}
 
 		public NtStatus GetFileSecurity(string fileName, out FileSystemSecurity security, AccessControlSections sections, DokanFileInfo info) {
 			try {
-				security = info.IsDirectory
+				string path = GetPath(fileName);
+				if (path == "") {
+					security = null;
+					return DokanResult.AccessDenied;
+				} else {
+					security = info.IsDirectory
 							   ? (FileSystemSecurity)Directory.GetAccessControl(GetPath(fileName))
 							   : File.GetAccessControl(GetPath(fileName));
-				return DokanResult.Success;
+					return DokanResult.Success;
+				}
+
+				
 			} catch (UnauthorizedAccessException) {
 				security = null;
 				return DokanResult.AccessDenied;
@@ -268,10 +287,19 @@ namespace MjFSv2Lib.FileSystem {
 		public NtStatus ReadFile(string fileName, byte[] buffer, out int bytesRead, long offset, DokanFileInfo info) {
 			if (info.Context == null) // memory mapped read
 			{
-				using (var stream = new FileStream(GetPath(fileName), FileMode.Open, System.IO.FileAccess.Read)) {
-					stream.Position = offset;
-					bytesRead = stream.Read(buffer, 0, buffer.Length);
+				string path = GetPath(fileName);
+				if (path == "") {
+					bytesRead = 0;
+					return DokanResult.Success;
+				} else {
+					using (var stream = new FileStream(GetPath(fileName), FileMode.Open, System.IO.FileAccess.Read)) {
+						stream.Position = offset;
+						bytesRead = stream.Read(buffer, 0, buffer.Length);
+					}
 				}
+
+
+				
 			} else // normal read
 			  {
 				var stream = info.Context as FileStream;

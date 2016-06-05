@@ -112,8 +112,9 @@ namespace MjFSv2Lib.Manager {
 				// The filesystem only has to be mounted once!
 				_mounted = true;
 				string driveLetter = Helper.GetFreeDriveLetters()[0].ToString() + ":\\";
-				DebugLogger.Log("Mounted MJFS volume to drive " + driveLetter);
+				Console.WriteLine("Mounted MJFS volume to drive " + driveLetter);
 				// Note the method below is blocking so code after this VV line will not be executed
+				fileSystem.Drive = driveLetter;
 				fileSystem.Mount(driveLetter, DokanOptions.DebugMode | DokanOptions.FixedDrive);
 			} else {
 				DebugLogger.Log("Volume has already been mounted!");

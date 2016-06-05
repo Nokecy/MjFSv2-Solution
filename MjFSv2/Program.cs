@@ -14,7 +14,6 @@ namespace MjFSv2Lib {
 			Console.WriteLine("MjFS v2 - An SQL based file system");
 			Console.WriteLine();
 
-
 			if (!Helper.IsUserAdministrator()) {
 				Console.WriteLine("Please run this program with administrator privilleges.");
 				Console.Read();
@@ -23,6 +22,8 @@ namespace MjFSv2Lib {
 				vMan.MountAllBags();
 				vMan.Mount();
 			}
+			Console.WriteLine("Application exited");
+			Console.Read();
 		}
 	}
 }
