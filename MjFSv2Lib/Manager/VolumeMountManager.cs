@@ -51,7 +51,7 @@ namespace MjFSv2Lib.Manager {
 		/// Removes the volume from the mounted bags and closes the associated database connection
 		/// </summary>
 		/// <param name="dinfo"></param>
-		public void UnmountBag(DriveInfo dinfo) {
+		public void UnmountBagDrive(DriveInfo dinfo) {
 			DebugLogger.Log("Unmounted bag on " + dinfo);
 			DatabaseOperations op;
 			if (_driveBagMap.TryGetValue(dinfo, out op)) {
@@ -63,22 +63,18 @@ namespace MjFSv2Lib.Manager {
 		}
 
 		/// <summary>
-		/// Scan all volumes for bag configurations and mount them to the main volume
+		/// Get a map of all volumes with a connection to their database
 		/// </summary>
-		public void MountAllBags() {
-			// Create a temporary map to store new drives
-			Dictionary<DriveInfo, DatabaseOperations> tempMap = new Dictionary<DriveInfo, DatabaseOperations>();
-
-			// Scan current drives for a configuration file
+		/// <returns></returns>
+		public Dictionary<DriveInfo, DatabaseOperations> GetBagConfigurations() {
+			Dictionary<DriveInfo, DatabaseOperations> result = new Dictionary<DriveInfo, DatabaseOperations>();
+			// Scan all volumes for a configuration file
 			foreach (DriveInfo dinfo in DriveInfo.GetDrives()) {
 				DatabaseOperations op;
 
-
 				// If the drive was already registered add the old db connection
 				if (_driveBagMap.TryGetValue(dinfo, out op)) {
-					tempMap.Add(dinfo, op);
-					_driveBagMap = tempMap;
-					return;
+					result.Add(dinfo, op);
 				} else {
 					try {
 						foreach (FileInfo finfo in dinfo.RootDirectory.GetFiles()) {
@@ -87,9 +83,8 @@ namespace MjFSv2Lib.Manager {
 								DebugLogger.Log("Configuration on drive " + dinfo);
 								// Open a connection to the database
 								op = dbMan.OpenConnection(dinfo + CONFIG_FILE_NAME);
-								tempMap.Add(dinfo, op);
-								_driveBagMap = tempMap;
-								return;
+								result.Add(dinfo, op);
+								break;
 							}
 						}
 					} catch (IOException) {
@@ -98,18 +93,16 @@ namespace MjFSv2Lib.Manager {
 				}
 
 			}
-			// Replace the drive map with the new one
-			_driveBagMap = tempMap;
+			return result;
 		}
 
-		/*
-			if (_driveBagMap.Keys.Count == 0) {
-				DebugLogger.Log("No applicable drives found");
-			} else {
-				DebugLogger.Log(_driveBagMap.Keys.Count + " applicable drives");
-			}*/
-	
-		
+		/// <summary>
+		/// Scan all volumes for bag configurations and mount them to the main volume
+		/// </summary>
+		public void MountAllBags() {
+			// Replace the current driveBag map with an updated one.
+			_driveBagMap = GetBagConfigurations();
+		}
 
 		/// <summary>
 		/// Mount the main value hosting all the bags
@@ -126,12 +119,5 @@ namespace MjFSv2Lib.Manager {
 				DebugLogger.Log("Volume has already been mounted!");
 			}
 		}
-
-		public void UnMount() {
-			if (_mounted) {
-				
-			}
-		}
-
 	}
 }

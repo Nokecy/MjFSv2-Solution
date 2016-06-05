@@ -102,7 +102,7 @@ namespace MjFSv2Lib.FileSystem {
 
 			// Remove any entry that caused an exception
 			foreach(DriveInfo dinfo in removable) {
-				volMan.UnmountBag(dinfo);
+				volMan.UnmountBagDrive(dinfo);
 			}
 
 			// Add any found files
