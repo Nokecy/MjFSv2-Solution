@@ -33,16 +33,20 @@ namespace MjFSv2Watcher {
 			string[] cInput = input.ToLower().Split(new char[] { ' ' });
 
 			string command = cInput[0];
-			string[] args = new string[command.Length -1];
-				
+			string[] args = new string[cInput.Length -1];
+			
 			Array.Copy(cInput, 1, args, 0, cInput.Length - 1);
 
-			if(command == "help") {
+			if (command == "help") {
 				PrintUsage();
 			} else if (command == "ls") {
 				PrintList();
 			} else if (command == "add") {
-				AddVolume();
+				if (args.Length > 0) {
+					AddBagVolume(args);
+				} else {
+					AddBagVolumeGUI();
+				}
 			} else if (command == "stat") {
 				PrintStats(args);
 			} else if (command == "remove") {
@@ -57,7 +61,7 @@ namespace MjFSv2Watcher {
 		void PrintUsage() {
 			Console.WriteLine("ls -- list all volumes configured for MjFS");
 			Console.WriteLine("stat [volume index] -- show detailed status of the given volume");
-			Console.WriteLine("add [paht to dir] -- configure the given drive for MjFS with the given folder as bag");
+			Console.WriteLine("add [path to dir] -- configure the given drive for MjFS with the given folder as bag");
 			Console.WriteLine("add -- configure any drive for MjFS");
 			Console.WriteLine("remove [volume index] -- remove the MjFS configuration of the given volume");
 		}
@@ -98,6 +102,10 @@ namespace MjFSv2Watcher {
 			Console.WriteLine("An error occurred! The system reports the following: \n" + ex.Message);
 		}
 
+		void PrintError(string msg) {
+			Console.WriteLine("An error occurred! The system reports the following: " + msg);
+		}
+
 
 		void RefreshDriveBagMap() {
 			RefreshDriveBagMap(false);
@@ -113,7 +121,29 @@ namespace MjFSv2Watcher {
 			}
 		}
 
-		void AddVolume() {
+		void AddBagVolume(string[] args) {
+			if (args.Length > 0) {
+				string path = args[0];
+				FileAttributes attr = File.GetAttributes(path);
+				if ((attr & FileAttributes.Directory) == FileAttributes.Directory) {
+					string driveRoot = System.IO.Path.GetPathRoot(path);
+					DriveInfo driveInfo = new DriveInfo(driveRoot);
+					RefreshDriveBagMap();
+					if (!driveBagMap.ContainsKey(driveInfo)) {
+						vMan.CreateBagVolume(driveInfo, path);
+						Console.WriteLine("Succesfully created a bag volume on " + driveInfo.ToString());
+					} else {
+						PrintError("This volume already has been configured for MjFS");
+					}
+				} else {
+					PrintError("Given path is not a directory");
+				}
+			} else {
+				PrintError("Please provide a path");
+			}
+		}
+
+		void AddBagVolumeGUI() {
 			RefreshDriveBagMap();
 			FolderBrowserDialog bd = new FolderBrowserDialog();
 			bd.Description = "Select a folder which contains all your files and will function as the volume's bag";
@@ -125,10 +155,13 @@ namespace MjFSv2Watcher {
 
 				if (!driveBagMap.ContainsKey(driveInfo)) {
 					vMan.CreateBagVolume(driveInfo, bd.SelectedPath);
+					Console.WriteLine("Succesfully created a bag volume on " + driveInfo.ToString());
 				} else {
 					// Drive is already present
-					Console.WriteLine("This volume already has been configured for MjFS");
+					PrintError("This volume already has been configured for MjFS");
 				}
+			} else {
+				PrintError("Action aborted by user");
 			}
 		}
 	}
