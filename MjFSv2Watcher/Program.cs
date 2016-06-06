@@ -50,7 +50,7 @@ namespace MjFSv2Watcher {
 			} else if (command == "stat") {
 				PrintStats(args);
 			} else if (command == "remove") {
-
+				DeleteBagVolume(args);
 			} else {
 				Console.WriteLine("Unknown command '" + command + "'");
 			}
@@ -76,26 +76,34 @@ namespace MjFSv2Watcher {
 		}
 
 		void PrintStats(string[] args) {
-			int index = 0;
-			try {
-				index = Convert.ToInt32(args[0]);
-			} catch (FormatException ex) {
-				PrintError(ex);
+			if (args.Length > 0) {
+				int index = 0;
+				try {
+					index = Convert.ToInt32(args[0]);
+				} catch (FormatException ex) {
+					PrintError(ex);
+				} catch (IndexOutOfRangeException ex) {
+					PrintError(ex);
+				}
+
+				RefreshDriveBagMap();
+
+				if (index > driveBagMap.Count - 1) {
+					PrintError(new IndexOutOfRangeException());
+					return;
+				}
+
+				DriveInfo dinfo = driveBagMap.Keys.ElementAt<DriveInfo>(index);
+				DatabaseOperations op = driveBagMap[dinfo];
+
+				Console.WriteLine("Volume: " + dinfo);
+				Console.WriteLine("Database version: " + op.GetVersion());
+				Console.WriteLine("Bag location: " + op.GetLocation());
+			} else {
+				PrintError("Please provide an index");
 			}
 
-			RefreshDriveBagMap();
-
-			if (index > driveBagMap.Count -1) {
-				PrintError(new IndexOutOfRangeException());
-				return;
-			}
 			
-			DriveInfo dinfo = driveBagMap.Keys.ElementAt<DriveInfo>(index);
-			DatabaseOperations op = driveBagMap[dinfo];
-
-			Console.WriteLine("Volume: " + dinfo);
-			Console.WriteLine("Database version: " + op.GetVersion());
-			Console.WriteLine("Bag location: " + op.GetLocation());
 		}
 
 		void PrintError(Exception ex) {
@@ -155,13 +163,41 @@ namespace MjFSv2Watcher {
 
 				if (!driveBagMap.ContainsKey(driveInfo)) {
 					vMan.CreateBagVolume(driveInfo, bd.SelectedPath);
-					Console.WriteLine("Succesfully created a bag volume on " + driveInfo.ToString());
+					Console.WriteLine("Successfully created a bag volume on " + driveInfo.ToString());
 				} else {
 					// Drive is already present
 					PrintError("This volume already has been configured for MjFS");
 				}
 			} else {
 				PrintError("Action aborted by user");
+			}
+		}
+
+		void DeleteBagVolume(string[] args) {
+			if (args.Length > 0) {
+				int index = 0;
+				try {
+					index = Convert.ToInt32(args[0]);
+				} catch (FormatException ex) {
+					PrintError(ex);
+				}
+
+				RefreshDriveBagMap();
+
+				if (index > driveBagMap.Count - 1) {
+					PrintError(new IndexOutOfRangeException());
+					return;
+				}
+
+				DriveInfo dinfo = driveBagMap.Keys.ElementAt<DriveInfo>(index);
+				vMan.UnmountBagDrive(dinfo);
+
+				File.Delete(dinfo + VolumeMountManager.CONFIG_FILE_NAME);
+
+				RefreshDriveBagMap(true);
+				Console.WriteLine("Successfully removed bag volume on " + dinfo.ToString());
+			} else {
+				PrintError("Please provide an index");
 			}
 		}
 	}

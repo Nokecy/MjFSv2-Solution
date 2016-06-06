@@ -18,6 +18,7 @@ namespace MjFSv2Lib.Manager {
 		private DatabaseManager dbMan = DatabaseManager.GetInstance();
 
 		private Dictionary<DriveInfo, DatabaseOperations> _driveBagMap;
+		private Dictionary<DriveInfo, DatabaseOperations> _knownDriveBagConfigs;
 
 		private VolumeMountManager() {
 			_driveBagMap = new Dictionary<DriveInfo, DatabaseOperations>();
@@ -52,15 +53,17 @@ namespace MjFSv2Lib.Manager {
 		/// </summary>
 		/// <param name="dinfo"></param>
 		public void UnmountBagDrive(DriveInfo dinfo) {
-			DebugLogger.Log("Unmounted bag on " + dinfo);
+			DebugLogger.Log("Unmounting bag on volume " + dinfo);
 			DatabaseOperations op;
-			if (_driveBagMap.TryGetValue(dinfo, out op)) {
+			if (_knownDriveBagConfigs.TryGetValue(dinfo, out op)) {
 				dbMan.CloseConnection(op);
 				_driveBagMap.Remove(dinfo);
 			} else {
-				DebugLogger.Log("Unable to unmount bag since it was never registered with the manager anyway.");
+				DebugLogger.Log("This volume is not known to the volume manger and can therefore not be unmounted");
 			}
 		}
+		
+
 
 		/// <summary>
 		/// Get a map of all volumes with a connection to their database
@@ -93,6 +96,7 @@ namespace MjFSv2Lib.Manager {
 				}
 
 			}
+			_knownDriveBagConfigs = result;
 			return result;
 		}
 
