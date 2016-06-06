@@ -7,17 +7,17 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace MjFSv2Watcher {
 	class Program {
 		private VolumeMountManager vMan = VolumeMountManager.GetInstance();
 		private Dictionary<DriveInfo, DatabaseOperations> driveBagMap;
 
+		[STAThread]
 		static void Main(string[] args) {
 			Console.WriteLine("MjFS v2 Watcher - An SQL based file system");
 			Console.WriteLine();
-
-
 			if (!Helper.IsUserAdministrator()) {
 				Console.WriteLine("Please run this program with administrator privilleges.");
 				Console.Read();
@@ -42,9 +42,9 @@ namespace MjFSv2Watcher {
 			} else if (command == "ls") {
 				PrintList();
 			} else if (command == "add") {
-				
+				AddVolume();
 			} else if (command == "stat") {
-
+				PrintStats(args);
 			} else if (command == "remove") {
 
 			} else {
@@ -63,7 +63,7 @@ namespace MjFSv2Watcher {
 		}
 
 		void PrintList() {
-			driveBagMap = vMan.GetBagConfigurations();
+			RefreshDriveBagMap(true);
 			int i = 0;
 			foreach(KeyValuePair<DriveInfo, DatabaseOperations> entry in driveBagMap) {
 				Console.WriteLine("[" + i + "] " + entry.Key);
@@ -72,10 +72,65 @@ namespace MjFSv2Watcher {
 		}
 
 		void PrintStats(string[] args) {
-			driveBagMap = vMan.GetBagConfigurations();
+			int index = 0;
+			try {
+				index = Convert.ToInt32(args[0]);
+			} catch (FormatException ex) {
+				PrintError(ex);
+			}
 
+			RefreshDriveBagMap();
+
+			if (index > driveBagMap.Count -1) {
+				PrintError(new IndexOutOfRangeException());
+				return;
+			}
+			
+			DriveInfo dinfo = driveBagMap.Keys.ElementAt<DriveInfo>(index);
+			DatabaseOperations op = driveBagMap[dinfo];
+
+			Console.WriteLine("Volume: " + dinfo);
+			Console.WriteLine("Database version: " + op.GetVersion());
+			Console.WriteLine("Bag location: " + op.GetLocation());
 		}
 
+		void PrintError(Exception ex) {
+			Console.WriteLine("An error occurred! The system reports the following: \n" + ex.Message);
+		}
+
+
+		void RefreshDriveBagMap() {
+			RefreshDriveBagMap(false);
+		}
+
+		void RefreshDriveBagMap(bool force) {
+			if (force) {
+				driveBagMap = vMan.GetBagConfigurations();
+			} else {
+				if (driveBagMap == null) {
+					driveBagMap = vMan.GetBagConfigurations();
+				}
+			}
+		}
+
+		void AddVolume() {
+			RefreshDriveBagMap();
+			FolderBrowserDialog bd = new FolderBrowserDialog();
+			bd.Description = "Select a folder which contains all your files and will function as the volume's bag";
+			bd.RootFolder = Environment.SpecialFolder.MyComputer;
+
+			if(bd.ShowDialog() == DialogResult.OK) {
+				string driveRoot = System.IO.Path.GetPathRoot(bd.SelectedPath);
+				DriveInfo driveInfo = new DriveInfo(driveRoot);
+
+				if (!driveBagMap.ContainsKey(driveInfo)) {
+					vMan.CreateBagVolume(driveInfo, bd.SelectedPath);
+				} else {
+					// Drive is already present
+					Console.WriteLine("This volume already has been configured for MjFS");
+				}
+			}
+		}
 	}
 
 	

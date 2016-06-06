@@ -28,8 +28,6 @@ namespace MjFSv2Lib.FileSystem {
 
 
 		private string GetPath(string path) {
-			DebugLogger.Log("GetPath for " + path, LogPriority.LOW);
-
 			Dictionary<DriveInfo, DatabaseOperations> driveMap = volMan.GetMountedBagDrives();
 			List<DriveInfo> removable = new List<DriveInfo>();
 
@@ -58,9 +56,7 @@ namespace MjFSv2Lib.FileSystem {
 					return result;
 				} 
 			}
-
-
-			return "";// This seems to not crash explorer for non-existant files
+			return null; // If everything else fails, return null
 		}
 
 		public IList<FileInformation> FindFilesHelper(string fileName, string searchPattern) {
@@ -187,7 +183,7 @@ namespace MjFSv2Lib.FileSystem {
 			// may be called with info.Context == null, but usually it isn't
 			string path = GetPath(fileName);
 
-			if (path == "") {
+			if (path == null) {
 				
 				FileInformation finfo = new FileInformation();
 				finfo.FileName = "FAKE";
@@ -217,7 +213,7 @@ namespace MjFSv2Lib.FileSystem {
 		public NtStatus GetFileSecurity(string fileName, out FileSystemSecurity security, AccessControlSections sections, DokanFileInfo info) {
 			try {
 				string path = GetPath(fileName);
-				if (path == "") {
+				if (path == null) {
 					security = null;
 					return DokanResult.AccessDenied;
 				} else {
@@ -288,7 +284,7 @@ namespace MjFSv2Lib.FileSystem {
 			if (info.Context == null) // memory mapped read
 			{
 				string path = GetPath(fileName);
-				if (path == "") {
+				if (path == null) {
 					bytesRead = 0;
 					return DokanResult.Success;
 				} else {

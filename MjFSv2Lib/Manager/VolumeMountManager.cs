@@ -120,5 +120,15 @@ namespace MjFSv2Lib.Manager {
 				DebugLogger.Log("Volume has already been mounted!");
 			}
 		}
+
+		/// <summary>
+		/// Instantiate a new bag configuration on the given volume
+		/// </summary>
+		/// <param name="dinfo"></param>
+		public void CreateBagVolume(DriveInfo dinfo, string bagLocation) {
+			DatabaseOperations op = dbMan.OpenConnection(dinfo + CONFIG_FILE_NAME);
+			op.AddTables(bagLocation.Replace(dinfo.ToString(), ""));
+			op.UpdateHash();
+		}
 	}
 }
