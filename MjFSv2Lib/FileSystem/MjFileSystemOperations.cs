@@ -28,15 +28,15 @@ namespace MjFSv2Lib.FileSystem {
 
 
 		private string GetPath(string path) {
-			Dictionary<DriveInfo, DatabaseOperations> driveMap = volMan.GetMountedBagDrives();
+			Dictionary<string, DatabaseOperations> driveMap = volMan.GetMountedBagDrives();
 			List<DriveInfo> removable = new List<DriveInfo>();
 
 			if (driveMap.Count > 1) {
 				// Multiple bags mounted. Look through all to confirm the item's location.
-				foreach (KeyValuePair<DriveInfo, DatabaseOperations> entry in driveMap) {
+				foreach (KeyValuePair<string, DatabaseOperations> entry in driveMap) {
 					string fileName = Path.GetFileName(path);
 					if (entry.Value.GetItem(fileName) != null) {
-						string driveLetter = entry.Key.Name;
+						string driveLetter = entry.Key;
 						string bagLocation = entry.Value.GetLocation();
 						string result = driveLetter + bagLocation + "\\" + fileName;
 						if (File.Exists(result)) {
@@ -48,8 +48,8 @@ namespace MjFSv2Lib.FileSystem {
 				}
 			} else {
 				// There is a single bag mounted. Directly return the item's location.
-				KeyValuePair<DriveInfo, DatabaseOperations> entry =  driveMap.First<KeyValuePair<DriveInfo, DatabaseOperations>>();
-				string driveLetter = entry.Key.Name;
+				KeyValuePair<string, DatabaseOperations> entry =  driveMap.First<KeyValuePair<string, DatabaseOperations>>();
+				string driveLetter = entry.Key;
 				string bagLocation = entry.Value.GetLocation();
 				string result = driveLetter + bagLocation + "\\" + Path.GetFileName(path);
 				if (File.Exists(result)) {
@@ -71,7 +71,7 @@ namespace MjFSv2Lib.FileSystem {
 
 			List<DriveInfo> removable = new List<DriveInfo>();
 
-			foreach(KeyValuePair<DriveInfo, DatabaseOperations> entry in volMan.GetMountedBagDrives()) {
+			foreach(KeyValuePair<string, DatabaseOperations> entry in volMan.GetMountedBagDrives()) {
 				try {
 					if (fileName == "\\") {
 						foreach (Tag tag in entry.Value.GetRootTags()) {
@@ -90,7 +90,7 @@ namespace MjFSv2Lib.FileSystem {
 						items.AddRange(entry.Value.GetItemsByCompositeTag(tags));
 					}
 				} catch(SQLiteException) {
-					removable.Add(entry.Key);
+					removable.Add(new DriveInfo(entry.Key));
 				}
 			}
 

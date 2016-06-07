@@ -17,11 +17,11 @@ namespace MjFSv2Lib.Manager {
 		private bool _mounted = false;
 		private DatabaseManager dbMan = DatabaseManager.GetInstance();
 
-		private Dictionary<DriveInfo, DatabaseOperations> _driveBagMap;
-		private Dictionary<DriveInfo, DatabaseOperations> _knownDriveBagConfigs;
+		private Dictionary<string, DatabaseOperations> _driveBagMap;
+		private Dictionary<string, DatabaseOperations> _knownDriveBagConfigs;
 
 		private VolumeMountManager() {
-			_driveBagMap = new Dictionary<DriveInfo, DatabaseOperations>();
+			_driveBagMap = new Dictionary<string, DatabaseOperations>();
 
 			// Register eventhandler for incoming USB devices
 			var watcher = new ManagementEventWatcher();
@@ -44,8 +44,8 @@ namespace MjFSv2Lib.Manager {
 		/// Retrieve a list of all drives with a bag
 		/// </summary>
 		/// <returns></returns>
-		public Dictionary<DriveInfo, DatabaseOperations> GetMountedBagDrives() {
-			return new Dictionary<DriveInfo, DatabaseOperations>(_driveBagMap);
+		public Dictionary<string, DatabaseOperations> GetMountedBagDrives() {
+			return new Dictionary<string, DatabaseOperations>(_driveBagMap);
 		}
 
 		/// <summary>
@@ -55,29 +55,40 @@ namespace MjFSv2Lib.Manager {
 		public void UnmountBagDrive(DriveInfo dinfo) {
 			DebugLogger.Log("Unmounting bag on volume " + dinfo);
 			DatabaseOperations op;
-			if (_knownDriveBagConfigs.TryGetValue(dinfo, out op)) {
+			if (_knownDriveBagConfigs.TryGetValue(dinfo.ToString(), out op)) {
 				dbMan.CloseConnection(op);
-				_driveBagMap.Remove(dinfo);
+				_driveBagMap.Remove(dinfo.ToString());
 			} else {
 				DebugLogger.Log("This volume is not known to the volume manger and can therefore not be unmounted");
 			}
 		}
-		
-
 
 		/// <summary>
-		/// Get a map of all volumes with a connection to their database
+		/// Get a map of all volumes with a connection to their database as it currently is.
+		/// </summary>
+		/// <returns>Null if no configurations are currently known</returns>
+		public Dictionary<string, DatabaseOperations> GetKnownBagConfigs() {
+			
+			if (_knownDriveBagConfigs == null) {
+				return null;
+			}
+			DebugLogger.Log("Total of " + _knownDriveBagConfigs.Count + " known bag configs");
+			return new Dictionary<string, DatabaseOperations>(_knownDriveBagConfigs);
+		}
+
+		/// <summary>
+		/// Get an updated map of all volumes with a connection to their database
 		/// </summary>
 		/// <returns></returns>
-		public Dictionary<DriveInfo, DatabaseOperations> GetBagConfigurations() {
-			Dictionary<DriveInfo, DatabaseOperations> result = new Dictionary<DriveInfo, DatabaseOperations>();
+		public Dictionary<string, DatabaseOperations> GetBagConfigurations() {
+			Dictionary<string, DatabaseOperations> result = new Dictionary<string, DatabaseOperations>();
 			// Scan all volumes for a configuration file
 			foreach (DriveInfo dinfo in DriveInfo.GetDrives()) {
 				DatabaseOperations op;
 
 				// If the drive was already registered add the old db connection
-				if (_driveBagMap.TryGetValue(dinfo, out op)) {
-					result.Add(dinfo, op);
+				if (_driveBagMap.TryGetValue(dinfo.ToString(), out op)) {
+					result.Add(dinfo.ToString(), op);
 				} else {
 					try {
 						foreach (FileInfo finfo in dinfo.RootDirectory.GetFiles()) {
@@ -86,7 +97,7 @@ namespace MjFSv2Lib.Manager {
 								DebugLogger.Log("Configuration on drive " + dinfo);
 								// Open a connection to the database
 								op = dbMan.OpenConnection(dinfo + CONFIG_FILE_NAME);
-								result.Add(dinfo, op);
+								result.Add(dinfo.ToString(), op);
 								break;
 							}
 						}

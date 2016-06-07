@@ -18,7 +18,7 @@ namespace MjFSv2Lib.Manager {
 		public static readonly int CURRENT_DB_VER = 3;
 
 		private static DatabaseManager instance = new DatabaseManager();
-		private Dictionary<DatabaseOperations, SQLiteConnection> _connections = new Dictionary<DatabaseOperations, SQLiteConnection>();
+		private readonly Dictionary<DatabaseOperations, SQLiteConnection> _connections = new Dictionary<DatabaseOperations, SQLiteConnection>();
 
 		private DatabaseManager() {}
 

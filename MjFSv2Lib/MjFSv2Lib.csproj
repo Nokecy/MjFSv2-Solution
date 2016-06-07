@@ -73,6 +73,8 @@
     <Compile Include="FileSystem\MirrorFileSystemOperations.cs" />
     <Compile Include="FileSystem\MjFileSystemOperations.cs" />
     <Compile Include="Manager\DatabaseManager.cs" />
+    <Compile Include="Manager\SynchronizationManager.cs" />
+    <Compile Include="Manager\SynchronizationManagerException.cs" />
     <Compile Include="Manager\VolumeMountManager.cs" />
     <Compile Include="Model\Item.cs" />
     <Compile Include="Model\Tag.cs" />

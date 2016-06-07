@@ -1,8 +1,10 @@
 ﻿using MjFSv2Lib.Database;
 using MjFSv2Lib.Manager;
+using MjFSv2Lib.Model;
 using MjFSv2Lib.Util;
 using System;
 using System.Collections.Generic;
+using System.Data.SQLite;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -23,8 +25,15 @@ namespace MjFSv2Watcher {
 				Console.Read();
 			} else {
 				Program p = new Program();
+				p.CreateDriveBagMap();
+				p.CreateWatcher();
 				p.ProcessInput(Console.ReadLine());
 			}
+		}
+
+		public void CreateWatcher() {
+			CreateDriveBagMap();
+			SynchronizationManager.GetInstance().StartSynchronization(vMan.GetKnownBagConfigs());
 		}
 
 		public void ProcessInput(string input) {
@@ -67,9 +76,9 @@ namespace MjFSv2Watcher {
 		}
 
 		void PrintList() {
-			RefreshDriveBagMap(true);
+			CreateDriveBagMap(true);
 			int i = 0;
-			foreach(KeyValuePair<DriveInfo, DatabaseOperations> entry in driveBagMap) {
+			foreach(KeyValuePair<string, DatabaseOperations> entry in vMan.GetKnownBagConfigs()) {
 				Console.WriteLine("[" + i + "] " + entry.Key);
 				i++;
 			}
@@ -86,19 +95,20 @@ namespace MjFSv2Watcher {
 					PrintError(ex);
 				}
 
-				RefreshDriveBagMap();
+				CreateDriveBagMap();
 
-				if (index > driveBagMap.Count - 1) {
+				if (index > vMan.GetKnownBagConfigs().Count - 1) {
 					PrintError(new IndexOutOfRangeException());
 					return;
 				}
 
-				DriveInfo dinfo = driveBagMap.Keys.ElementAt<DriveInfo>(index);
-				DatabaseOperations op = driveBagMap[dinfo];
+				string dinfo = vMan.GetKnownBagConfigs().Keys.ElementAt<string>(index);
+				DatabaseOperations op = vMan.GetKnownBagConfigs()[dinfo];
 
 				Console.WriteLine("Volume: " + dinfo);
 				Console.WriteLine("Database version: " + op.GetVersion());
 				Console.WriteLine("Bag location: " + op.GetLocation());
+				Console.WriteLine("Watch status: " + (SynchronizationManager.GetInstance().GetSynchronizedDrives().Contains(dinfo) ? "actively watched" : "not watching"));
 			} else {
 				PrintError("Please provide an index");
 			}
@@ -114,17 +124,23 @@ namespace MjFSv2Watcher {
 			Console.WriteLine("An error occurred! The system reports the following: " + msg);
 		}
 
-
-		void RefreshDriveBagMap() {
-			RefreshDriveBagMap(false);
+		/// <summary>
+		/// Create the map of drives to database operations. If the map already exists, skip.
+		/// </summary>
+		void CreateDriveBagMap() {
+			CreateDriveBagMap(false);
 		}
 
-		void RefreshDriveBagMap(bool force) {
+		/// <summary>
+		/// Create the map of drives to database operations
+		/// </summary>
+		/// <param name="force">Force create the map in case it did already exist</param>
+		void CreateDriveBagMap(bool force) {
 			if (force) {
-				driveBagMap = vMan.GetBagConfigurations();
+				vMan.GetBagConfigurations();
 			} else {
-				if (driveBagMap == null) {
-					driveBagMap = vMan.GetBagConfigurations();
+				if (vMan.GetKnownBagConfigs() == null) {
+					vMan.GetBagConfigurations();
 				}
 			}
 		}
@@ -136,7 +152,7 @@ namespace MjFSv2Watcher {
 				if ((attr & FileAttributes.Directory) == FileAttributes.Directory) {
 					string driveRoot = System.IO.Path.GetPathRoot(path);
 					DriveInfo driveInfo = new DriveInfo(driveRoot);
-					RefreshDriveBagMap();
+					CreateDriveBagMap();
 					if (!driveBagMap.ContainsKey(driveInfo)) {
 						vMan.CreateBagVolume(driveInfo, path);
 						Console.WriteLine("Succesfully created a bag volume on " + driveInfo.ToString());
@@ -152,7 +168,7 @@ namespace MjFSv2Watcher {
 		}
 
 		void AddBagVolumeGUI() {
-			RefreshDriveBagMap();
+			CreateDriveBagMap();
 			FolderBrowserDialog bd = new FolderBrowserDialog();
 			bd.Description = "Select a folder which contains all your files and will function as the volume's bag";
 			bd.RootFolder = Environment.SpecialFolder.MyComputer;
@@ -182,7 +198,7 @@ namespace MjFSv2Watcher {
 					PrintError(ex);
 				}
 
-				RefreshDriveBagMap();
+				CreateDriveBagMap();
 
 				if (index > driveBagMap.Count - 1) {
 					PrintError(new IndexOutOfRangeException());
@@ -194,7 +210,7 @@ namespace MjFSv2Watcher {
 
 				File.Delete(dinfo + VolumeMountManager.CONFIG_FILE_NAME);
 
-				RefreshDriveBagMap(true);
+				CreateDriveBagMap(true);
 				Console.WriteLine("Successfully removed bag volume on " + dinfo.ToString());
 			} else {
 				PrintError("Please provide an index");
