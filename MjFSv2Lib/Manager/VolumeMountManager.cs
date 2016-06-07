@@ -9,6 +9,9 @@ using System.Linq;
 using System.Management;
 
 namespace MjFSv2Lib.Manager {
+	/// <summary>
+	/// Manages configuration discovery and bag (un)mounting as well as mounting the main volume
+	/// </summary>
 	public class VolumeMountManager {
 		private static VolumeMountManager instance = new VolumeMountManager();
 		public static readonly string CONFIG_FILE_NAME = "BagConf.sqlite";
