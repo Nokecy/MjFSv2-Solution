@@ -32,28 +32,34 @@ namespace MjFSv2Lib.Manager {
 		/// <param name="filePath"></param>
 		/// <returns></returns>
 		public DatabaseOperations OpenConnection(string filePath) {
-			if (File.Exists(filePath)) {
-				string connectionString = "Data Source=" + filePath + ";Version=" + SQLITE_VERSION;
-				SQLiteConnection con = new SQLiteConnection(connectionString);
-				con.Open();
-				DatabaseOperations op = new DatabaseOperations(con);
+			bool skipVerCheck = false;
 
-				int loadedVer = op.GetVersion();
-
-				if (!SUPPORTED_DB_VER.Contains(loadedVer)) {
-					throw new NotSupportedException("Database version " + loadedVer + " is not supported.");
-				}
-
-				if (op == null) {
-					DebugLogger.Log("WARNING: op null at creation time");
-				}
-
-				_connections.Add(op, con);
-				return op;
-			} else {
-				throw new FileNotFoundException("The specified database file does not exist");
+			if (!File.Exists(filePath)) {
+				SQLiteConnection.CreateFile(filePath);
+				skipVerCheck = true;
 			}
+
+			string connectionString = "Data Source=" + filePath + ";Version=" + SQLITE_VERSION;
+			SQLiteConnection con = new SQLiteConnection(connectionString);
+			con.Open();
+			DatabaseOperations op = new DatabaseOperations(con);
+ 
+			if (!skipVerCheck) {
+				try {
+					int loadedVer = op.GetVersion();
+
+					if (!SUPPORTED_DB_VER.Contains(loadedVer)) {
+						throw new NotSupportedException("Database version " + loadedVer + " is not supported.");
+					}
+				} catch (SQLiteException ex) {
+					throw new NotSupportedException("Database format not supported");
+				}
+			}
+	
+			_connections.Add(op, con);
+			return op;
 		}
+		
 
 		/// <summary>
 		/// Close the connection contained in the operation object and unregister it

@@ -21,6 +21,7 @@ namespace MjFSv2Lib.Manager {
 		private DatabaseManager dbMan = DatabaseManager.GetInstance();
 
 		private Dictionary<DriveInfo, DatabaseOperations> _driveBagMap;
+		private Dictionary<DriveInfo, DatabaseOperations> _knownDriveBagConfigs;
 
 		private VolumeMountManager() {
 			_driveBagMap = new Dictionary<DriveInfo, DatabaseOperations>();
@@ -55,15 +56,17 @@ namespace MjFSv2Lib.Manager {
 		/// </summary>
 		/// <param name="dinfo"></param>
 		public void UnmountBagDrive(DriveInfo dinfo) {
-			DebugLogger.Log("Unmounted bag on " + dinfo);
+			DebugLogger.Log("Unmounting bag on volume " + dinfo);
 			DatabaseOperations op;
-			if (_driveBagMap.TryGetValue(dinfo, out op)) {
+			if (_knownDriveBagConfigs.TryGetValue(dinfo, out op)) {
 				dbMan.CloseConnection(op);
 				_driveBagMap.Remove(dinfo);
 			} else {
-				DebugLogger.Log("Unable to unmount bag since it was never registered with the manager anyway.");
+				DebugLogger.Log("This volume is not known to the volume manger and can therefore not be unmounted");
 			}
 		}
+		
+
 
 		/// <summary>
 		/// Get a map of all volumes with a connection to their database
@@ -96,6 +99,7 @@ namespace MjFSv2Lib.Manager {
 				}
 
 			}
+			_knownDriveBagConfigs = result;
 			return result;
 		}
 
@@ -115,12 +119,23 @@ namespace MjFSv2Lib.Manager {
 				// The filesystem only has to be mounted once!
 				_mounted = true;
 				string driveLetter = Helper.GetFreeDriveLetters()[0].ToString() + ":\\";
-				DebugLogger.Log("Mounted MJFS volume to drive " + driveLetter);
+				Console.WriteLine("Mounted MJFS volume to drive " + driveLetter);
 				// Note the method below is blocking so code after this VV line will not be executed
+				fileSystem.Drive = driveLetter;
 				fileSystem.Mount(driveLetter, DokanOptions.DebugMode | DokanOptions.FixedDrive);
 			} else {
 				DebugLogger.Log("Volume has already been mounted!");
 			}
+		}
+
+		/// <summary>
+		/// Instantiate a new bag configuration on the given volume
+		/// </summary>
+		/// <param name="dinfo"></param>
+		public void CreateBagVolume(DriveInfo dinfo, string bagLocation) {
+			DatabaseOperations op = dbMan.OpenConnection(dinfo + CONFIG_FILE_NAME);
+			op.AddTables(bagLocation.Replace(dinfo.ToString(), ""));
+			op.UpdateHash();
 		}
 	}
 }
