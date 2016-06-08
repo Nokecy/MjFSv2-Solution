@@ -1,6 +1,6 @@
 # MjFSv2Lib
 
-This project includes all the re-usable classes used by the MjFS system. What follows is a short description of each package and what the classes inside the package are supposed to represent / do.
+This project includes all the re-usable classes used by the other project in the MjFS solution. What follows is a short description of the contents of each package.
 
 ## Database
 #### DatabaseOperations
@@ -16,7 +16,7 @@ Internal class that manages the currently open SQLite connections and the corres
 #### VolumeMountManager
 Public entry point of the MjFS environment. This class is able to find configuration files for MjFS and connects volumes to database connections. Moreover, this class initializes the MjFileSystemOperations file system and mounts it.
 
-### SynchronizationManager
+#### SynchronizationManager
 Public class used by MjFSv2Watcher. SynchronizationManager listens for any file changes in the bag and updates the database accordingly.
 
 ## Model
