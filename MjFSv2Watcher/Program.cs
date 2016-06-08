@@ -14,7 +14,6 @@ using System.Windows.Forms;
 namespace MjFSv2Watcher {
 	class Program {
 		private VolumeMountManager vMan = VolumeMountManager.GetInstance();
-		private Dictionary<DriveInfo, DatabaseOperations> driveBagMap;
 
 		[STAThread]
 		static void Main(string[] args) {
@@ -60,6 +59,8 @@ namespace MjFSv2Watcher {
 				PrintStats(args);
 			} else if (command == "remove") {
 				DeleteBagVolume(args);
+			} else if (command == "synch") {
+				Synch(args);
 			} else {
 				Console.WriteLine("Unknown command '" + command + "'");
 			}
@@ -73,6 +74,7 @@ namespace MjFSv2Watcher {
 			Console.WriteLine("add [path to dir] -- configure the given drive for MjFS with the given folder as bag");
 			Console.WriteLine("add -- configure any drive for MjFS");
 			Console.WriteLine("remove [volume index] -- remove the MjFS configuration of the given volume");
+			Console.WriteLine("synch [volume index] [on|off]");
 		}
 
 		void PrintList() {
@@ -84,31 +86,59 @@ namespace MjFSv2Watcher {
 			}
 		}
 
+		void Synch(string[] args) {
+			if (args.Length == 2) {
+				KeyValuePair<string, DatabaseOperations> volPair = GetBagVolumeInfo(args[0]);
+				SynchronizationManager synchMan = SynchronizationManager.GetInstance();
+				if (args[1].ToLower() == "on") {
+					synchMan.StartSynchronization(volPair.Key, volPair.Value);
+				} else if (args[1].ToLower() == "off") {
+					synchMan.StopSynchronization(volPair.Key);
+				} else {
+					PrintError("Invalid argument '" + args[1] + "'");
+				}
+
+			} else {
+				PrintError("Invalid amount of arguments");
+			}
+		}
+
+		KeyValuePair<string, DatabaseOperations> GetBagVolumeInfo(string input) {
+			int index = 0;
+			try {
+				index = Convert.ToInt32(input);
+			} catch (FormatException ex) {
+				PrintError(ex);
+			} catch (IndexOutOfRangeException ex) {
+				PrintError(ex);
+				return new KeyValuePair<string, DatabaseOperations>();
+			}
+			return GetBagVolumeInfo(index);
+		}
+
+		KeyValuePair<string, DatabaseOperations> GetBagVolumeInfo(int index) {
+			
+			CreateDriveBagMap();
+
+			if (index > vMan.GetKnownBagConfigs().Count - 1) {
+				PrintError(new IndexOutOfRangeException());
+				return new KeyValuePair<string, DatabaseOperations>();
+			}
+
+			string dinfo = vMan.GetKnownBagConfigs().Keys.ElementAt<string>(index);
+			DatabaseOperations op = vMan.GetKnownBagConfigs()[dinfo];
+
+			return new KeyValuePair<string, DatabaseOperations>(dinfo, op);
+		}
+
 		void PrintStats(string[] args) {
 			if (args.Length > 0) {
-				int index = 0;
-				try {
-					index = Convert.ToInt32(args[0]);
-				} catch (FormatException ex) {
-					PrintError(ex);
-				} catch (IndexOutOfRangeException ex) {
-					PrintError(ex);
-				}
+				KeyValuePair<string, DatabaseOperations> volPair = GetBagVolumeInfo(args[0]);
 
-				CreateDriveBagMap();
-
-				if (index > vMan.GetKnownBagConfigs().Count - 1) {
-					PrintError(new IndexOutOfRangeException());
-					return;
-				}
-
-				string dinfo = vMan.GetKnownBagConfigs().Keys.ElementAt<string>(index);
-				DatabaseOperations op = vMan.GetKnownBagConfigs()[dinfo];
-
-				Console.WriteLine("Volume: " + dinfo);
-				Console.WriteLine("Database version: " + op.GetVersion());
-				Console.WriteLine("Bag location: " + op.GetLocation());
-				Console.WriteLine("Watch status: " + (SynchronizationManager.GetInstance().GetSynchronizedDrives().Contains(dinfo) ? "actively watched" : "not watching"));
+				Console.WriteLine("Volume: " + volPair.Key);
+				Console.WriteLine("Database version: " + volPair.Value.GetVersion());
+				Console.WriteLine("Bag location: " + volPair.Value.GetLocation());
+				Console.WriteLine("Synch status: " + (SynchronizationManager.GetInstance().GetSynchronizedDrives().Contains(volPair.Key) ? "synchronized" : "not synchronized"));
 			} else {
 				PrintError("Please provide an index");
 			}
@@ -153,7 +183,7 @@ namespace MjFSv2Watcher {
 					string driveRoot = System.IO.Path.GetPathRoot(path);
 					DriveInfo driveInfo = new DriveInfo(driveRoot);
 					CreateDriveBagMap();
-					if (!driveBagMap.ContainsKey(driveInfo)) {
+					if (!vMan.GetBagConfigurations().ContainsKey(driveInfo.ToString())) {
 						vMan.CreateBagVolume(driveInfo, path);
 						Console.WriteLine("Succesfully created a bag volume on " + driveInfo.ToString());
 					} else {
@@ -177,7 +207,7 @@ namespace MjFSv2Watcher {
 				string driveRoot = System.IO.Path.GetPathRoot(bd.SelectedPath);
 				DriveInfo driveInfo = new DriveInfo(driveRoot);
 
-				if (!driveBagMap.ContainsKey(driveInfo)) {
+				if (!vMan.GetBagConfigurations().ContainsKey(driveInfo.ToString())) {
 					vMan.CreateBagVolume(driveInfo, bd.SelectedPath);
 					Console.WriteLine("Successfully created a bag volume on " + driveInfo.ToString());
 				} else {
@@ -200,18 +230,18 @@ namespace MjFSv2Watcher {
 
 				CreateDriveBagMap();
 
-				if (index > driveBagMap.Count - 1) {
+				if (index > vMan.GetKnownBagConfigs().Count - 1) {
 					PrintError(new IndexOutOfRangeException());
 					return;
 				}
 
-				DriveInfo dinfo = driveBagMap.Keys.ElementAt<DriveInfo>(index);
-				vMan.UnmountBagDrive(dinfo);
+				string drive = vMan.GetKnownBagConfigs().Keys.ElementAt<string>(index);
+				vMan.UnmountBagDrive(new DriveInfo(drive));
 
-				File.Delete(dinfo + VolumeMountManager.CONFIG_FILE_NAME);
+				File.Delete(drive + VolumeMountManager.CONFIG_FILE_NAME);
 
 				CreateDriveBagMap(true);
-				Console.WriteLine("Successfully removed bag volume on " + dinfo.ToString());
+				Console.WriteLine("Successfully removed bag volume on " + drive);
 			} else {
 				PrintError("Please provide an index");
 			}

@@ -14,7 +14,10 @@ MjFS implementation of the IDokanOperations interface. This is the user-mode par
 Internal class that manages the currently open SQLite connections and the corresponding DatabaseOperations objects.
 
 #### VolumeMountManager
-Entry point of the MjFS environment. This class finds configuration files for MjFS and connects volumes to database connections. Moreover, this class initializes the MjFileSystemOperations file system and mounts it.
+Public entry point of the MjFS environment. This class is able to find configuration files for MjFS and connects volumes to database connections. Moreover, this class initializes the MjFileSystemOperations file system and mounts it.
+
+### SynchronizationManager
+Public class used by MjFSv2Watcher. SynchronizationManager listens for any file changes in the bag and updates the database accordingly.
 
 ## Model
 #### Item
