@@ -76,6 +76,7 @@
     <Compile Include="Manager\SynchronizationManager.cs" />
     <Compile Include="Manager\SynchronizationManagerException.cs" />
     <Compile Include="Manager\VolumeMountManager.cs" />
+    <Compile Include="Manager\VolumeMountManagerException.cs" />
     <Compile Include="Model\Item.cs" />
     <Compile Include="Model\Tag.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

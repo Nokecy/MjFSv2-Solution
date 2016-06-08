@@ -28,12 +28,12 @@ namespace MjFSv2Lib.FileSystem {
 
 
 		private string GetPath(string path) {
-			Dictionary<string, DatabaseOperations> driveMap = volMan.GetMountedBagDrives();
+			Dictionary<string, DatabaseOperations> bagVolumes = volMan.MountedBagVolumes;
 			List<DriveInfo> removable = new List<DriveInfo>();
 
-			if (driveMap.Count > 1) {
+			if (bagVolumes.Count > 1) {
 				// Multiple bags mounted. Look through all to confirm the item's location.
-				foreach (KeyValuePair<string, DatabaseOperations> entry in driveMap) {
+				foreach (KeyValuePair<string, DatabaseOperations> entry in bagVolumes) {
 					string fileName = Path.GetFileName(path);
 					if (entry.Value.GetItem(fileName) != null) {
 						string driveLetter = entry.Key;
@@ -48,7 +48,7 @@ namespace MjFSv2Lib.FileSystem {
 				}
 			} else {
 				// There is a single bag mounted. Directly return the item's location.
-				KeyValuePair<string, DatabaseOperations> entry =  driveMap.First<KeyValuePair<string, DatabaseOperations>>();
+				KeyValuePair<string, DatabaseOperations> entry =  bagVolumes.First<KeyValuePair<string, DatabaseOperations>>();
 				string driveLetter = entry.Key;
 				string bagLocation = entry.Value.GetLocation();
 				string result = driveLetter + bagLocation + "\\" + Path.GetFileName(path);
@@ -71,7 +71,7 @@ namespace MjFSv2Lib.FileSystem {
 
 			List<DriveInfo> removable = new List<DriveInfo>();
 
-			foreach(KeyValuePair<string, DatabaseOperations> entry in volMan.GetMountedBagDrives()) {
+			foreach(KeyValuePair<string, DatabaseOperations> entry in volMan.MountedBagVolumes) {
 				try {
 					if (fileName == "\\") {
 						foreach (Tag tag in entry.Value.GetRootTags()) {
@@ -96,7 +96,7 @@ namespace MjFSv2Lib.FileSystem {
 
 			// Remove any entry that caused an exception
 			foreach(DriveInfo dinfo in removable) {
-				volMan.UnmountBagDrive(dinfo);
+				volMan.UnmountBagVolume(dinfo.ToString());
 			}
 
 			// Add any found files

@@ -10,26 +10,26 @@ using System.Management;
 
 namespace MjFSv2Lib.Manager {
 	/// <summary>
-	/// Manages configuration discovery and bag (un)mounting as well as mounting the main volume
+	/// Manages bag volume creation, deletion, discovery, mounting and unmounting as well as mounting the main volume.
 	/// </summary>
 	public class VolumeMountManager {
 		private static VolumeMountManager instance = new VolumeMountManager();
 		public static readonly string CONFIG_FILE_NAME = "BagConf.sqlite";
-		private static readonly MjFileSystemOperations fileSystem = new MjFileSystemOperations();
+		private static readonly MjFileSystemOperations fileSystem = new MjFileSystemOperations(); // The MjFS main volume
 
-		private bool _mounted = false;
-		private DatabaseManager dbMan = DatabaseManager.GetInstance();
+		private bool _mainMounted = false; // Flag indicating the mount status of the main volume
+		private DatabaseManager dbMan = DatabaseManager.GetInstance(); // The configuration database manager
 
-		private Dictionary<string, DatabaseOperations> _driveBagMap;
-		private Dictionary<string, DatabaseOperations> _knownDriveBagConfigs;
+		private Dictionary<string, DatabaseOperations> _mountedBagVolumes; // A map containing all currently mounted bag volumes
+		private Dictionary<string, DatabaseOperations> _discoveredBagVolumes; // A map containing all discovered bag volumes 
 
 		private VolumeMountManager() {
-			_driveBagMap = new Dictionary<string, DatabaseOperations>();
+			_mountedBagVolumes = new Dictionary<string, DatabaseOperations>();
 
-			// Register eventhandler for incoming USB devices
+			// Register eventhandler for changes to logical volumes
 			var watcher = new ManagementEventWatcher();
 			var query = new WqlEventQuery("SELECT * FROM Win32_DeviceChangeEvent WHERE EventType = 2");
-			watcher.EventArrived += new EventArrivedEventHandler(OnDeviceChangedEvent);
+			watcher.EventArrived += new EventArrivedEventHandler(OnLogicalVolumesChanges);
 			watcher.Query = query;
 			watcher.Start();
 		}
@@ -38,115 +38,127 @@ namespace MjFSv2Lib.Manager {
 			return instance;
 		}
 
-		private void OnDeviceChangedEvent(object sender, EventArrivedEventArgs e) {
-			DebugLogger.Log("Volume (un)mounted");
-			MountAllBags();
+		#region Event handlers
+
+		private void OnLogicalVolumesChanges(object sender, EventArrivedEventArgs e) {
+			DebugLogger.Log("Logical volumes (un)mounted");
+			MountBagVolumes(); 
 		}
 
-		/// <summary>
-		/// Retrieve a list of all drives with a bag
-		/// </summary>
-		/// <returns></returns>
-		public Dictionary<string, DatabaseOperations> GetMountedBagDrives() {
-			return new Dictionary<string, DatabaseOperations>(_driveBagMap);
-		}
+		#endregion
+
+
+		#region Properties
 
 		/// <summary>
-		/// Removes the volume from the mounted bags and closes the associated database connection
+		/// Return a copy of all mounted bag volumes.
 		/// </summary>
-		/// <param name="dinfo"></param>
-		public void UnmountBagDrive(DriveInfo dinfo) {
-			DebugLogger.Log("Unmounting bag on volume " + dinfo);
-			DatabaseOperations op;
-			if (_knownDriveBagConfigs.TryGetValue(dinfo.ToString(), out op)) {
-				dbMan.CloseConnection(op);
-				_driveBagMap.Remove(dinfo.ToString());
-			} else {
-				DebugLogger.Log("This volume is not known to the volume manger and can therefore not be unmounted");
+		public Dictionary<string, DatabaseOperations> MountedBagVolumes {
+			get {
+				return new Dictionary<string, DatabaseOperations>(_mountedBagVolumes);
 			}
 		}
 
 		/// <summary>
-		/// Get a map of all volumes with a connection to their database as it currently is.
+		/// Return a copy of all discovered bag volumes. Returns null if no bag volumes were discovered.
 		/// </summary>
-		/// <returns>Null if no configurations are currently known</returns>
-		public Dictionary<string, DatabaseOperations> GetKnownBagConfigs() {
-			
-			if (_knownDriveBagConfigs == null) {
-				return null;
-			}
-			DebugLogger.Log("Total of " + _knownDriveBagConfigs.Count + " known bag configs");
-			return new Dictionary<string, DatabaseOperations>(_knownDriveBagConfigs);
+		public Dictionary<string, DatabaseOperations> DiscoveredBagVolumes {
+			get {
+				if (_discoveredBagVolumes == null) {
+					return null;
+				}
+				return new Dictionary<string, DatabaseOperations>(_discoveredBagVolumes);
+			}	
 		}
 
+		#endregion
+
+
 		/// <summary>
-		/// Get an updated map of all volumes with a connection to their database
+		/// Return a map of all discovered bag volumes. Performs a scan of all volumes.
 		/// </summary>
 		/// <returns></returns>
-		public Dictionary<string, DatabaseOperations> GetBagConfigurations() {
+		public Dictionary<string, DatabaseOperations> DiscoverBagVolumes() {
 			Dictionary<string, DatabaseOperations> result = new Dictionary<string, DatabaseOperations>();
 			// Scan all volumes for a configuration file
 			foreach (DriveInfo dinfo in DriveInfo.GetDrives()) {
 				DatabaseOperations op;
 
-				// If the drive was already registered add the old db connection
-				if (_driveBagMap.TryGetValue(dinfo.ToString(), out op)) {
-					result.Add(dinfo.ToString(), op);
+				if (_mountedBagVolumes.TryGetValue(dinfo.ToString(), out op)) {
+					result.Add(dinfo.ToString(), op); // Bag volume already registered, re-use old entry
 				} else {
 					try {
 						foreach (FileInfo finfo in dinfo.RootDirectory.GetFiles()) {
 							if (finfo.Name == CONFIG_FILE_NAME) {
-								// Found a configuration file
+								// Found db
 								DebugLogger.Log("Configuration on drive " + dinfo);
-								// Open a connection to the database
+								// Open connection to db
 								op = dbMan.OpenConnection(dinfo + CONFIG_FILE_NAME);
 								result.Add(dinfo.ToString(), op);
 								break;
 							}
 						}
 					} catch (IOException) {
+						// Drive unavailable of not enough rights. This is not critical, log it.
 						DebugLogger.Log("Unable to scan files on drive " + dinfo);
 					}
 				}
-
 			}
-			_knownDriveBagConfigs = result;
-			return result;
+			_discoveredBagVolumes = result; // Update map
+			return result; // Return the map as well
 		}
 
 		/// <summary>
-		/// Scan all volumes for bag configurations and mount them to the main volume
+		/// Mount all newly discovered bag volumes
 		/// </summary>
-		public void MountAllBags() {
-			// Replace the current driveBag map with an updated one.
-			_driveBagMap = GetBagConfigurations();
+		public void MountBagVolumes() {
+			// Replace the current bagVolumes map with an updated one.
+			_mountedBagVolumes = DiscoverBagVolumes();
 		}
 
 		/// <summary>
-		/// Mount the main value hosting all the bags
+		/// Removes the volume from the mounted bags and closes the associated database connection
 		/// </summary>
-		public void Mount() {
-			if (!_mounted) {
-				// The filesystem only has to be mounted once!
-				_mounted = true;
-				string driveLetter = Helper.GetFreeDriveLetters()[0].ToString() + ":\\";
-				Console.WriteLine("Mounted MJFS volume to drive " + driveLetter);
-				// Note the method below is blocking so code after this VV line will not be executed
-				fileSystem.Drive = driveLetter;
-				fileSystem.Mount(driveLetter, DokanOptions.DebugMode | DokanOptions.FixedDrive);
+		/// <param name="drive"></param>
+		public void UnmountBagVolume(string drive) {
+			DebugLogger.Log("Unmounting bag volume on '" + drive + "'");
+			DatabaseOperations op;
+			if (_discoveredBagVolumes.TryGetValue(drive, out op)) {
+				dbMan.CloseConnection(op);
+				_mountedBagVolumes.Remove(drive);
 			} else {
-				DebugLogger.Log("Volume has already been mounted!");
+				throw new VolumeMountManagerException("Cannot unmount unregistered bag volume");
 			}
 		}
 
 		/// <summary>
-		/// Instantiate a new bag configuration on the given volume
+		/// Mount the main volume. Unmounting this volume is not possible.
 		/// </summary>
-		/// <param name="dinfo"></param>
-		public void CreateBagVolume(DriveInfo dinfo, string bagLocation) {
-			DatabaseOperations op = dbMan.OpenConnection(dinfo + CONFIG_FILE_NAME);
-			op.AddTables(bagLocation.Replace(dinfo.ToString(), ""));
-			op.UpdateHash();
+		public void MountMainVolume() {
+			if (!_mainMounted) {
+				_mainMounted = true;
+				string driveLetter = Helper.GetFreeDriveLetters()[0].ToString() + ":\\";
+				Console.WriteLine("Mounting main volume to '" + driveLetter + "'");
+				fileSystem.Drive = driveLetter;
+				fileSystem.Mount(driveLetter, DokanOptions.DebugMode | DokanOptions.FixedDrive); // Blocking call
+			} else {
+				DebugLogger.Log("Main volume has already been mounted");
+			}
+		}
+
+		/// <summary>
+		/// Instantiate a new bag volume on the given volume
+		/// </summary>
+		/// <param name="dInfo"></param>
+		public void CreateBagVolume(string drive, string bagLocation) {
+			DiscoverBagVolumes(); // Make sure we have the latest data
+			if (!_discoveredBagVolumes.Keys.Contains(drive.ToUpper())) {
+				DatabaseOperations op = dbMan.OpenConnection(drive + CONFIG_FILE_NAME);
+				op.AddTables(bagLocation.Substring(3));
+				op.UpdateHash();
+			} else {
+				throw new VolumeMountManagerException("A bag has already been registed on this volume");
+			}
 		}
 	}
 }

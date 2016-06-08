@@ -32,7 +32,7 @@ namespace MjFSv2Watcher {
 
 		public void CreateWatcher() {
 			CreateDriveBagMap();
-			SynchronizationManager.GetInstance().StartSynchronization(vMan.GetKnownBagConfigs());
+			SynchronizationManager.GetInstance().StartSynchronization(vMan.DiscoveredBagVolumes);
 		}
 
 		public void ProcessInput(string input) {
@@ -80,7 +80,7 @@ namespace MjFSv2Watcher {
 		void PrintList() {
 			CreateDriveBagMap(true);
 			int i = 0;
-			foreach(KeyValuePair<string, DatabaseOperations> entry in vMan.GetKnownBagConfigs()) {
+			foreach(KeyValuePair<string, DatabaseOperations> entry in vMan.DiscoveredBagVolumes) {
 				Console.WriteLine("[" + i + "] " + entry.Key);
 				i++;
 			}
@@ -88,12 +88,12 @@ namespace MjFSv2Watcher {
 
 		void Synch(string[] args) {
 			if (args.Length == 2) {
-				KeyValuePair<string, DatabaseOperations> volPair = GetBagVolumeInfo(args[0]);
+				KeyValuePair<string, DatabaseOperations> entry = GetBagVolumeInfo(args[0]);
 				SynchronizationManager synchMan = SynchronizationManager.GetInstance();
 				if (args[1].ToLower() == "on") {
-					synchMan.StartSynchronization(volPair.Key, volPair.Value);
+					synchMan.StartSynchronization(entry);
 				} else if (args[1].ToLower() == "off") {
-					synchMan.StopSynchronization(volPair.Key);
+					synchMan.StopSynchronization(entry.Key);
 				} else {
 					PrintError("Invalid argument '" + args[1] + "'");
 				}
@@ -107,40 +107,41 @@ namespace MjFSv2Watcher {
 			int index = 0;
 			try {
 				index = Convert.ToInt32(input);
-			} catch (FormatException ex) {
-				PrintError(ex);
-			} catch (IndexOutOfRangeException ex) {
-				PrintError(ex);
-				return new KeyValuePair<string, DatabaseOperations>();
-			}
-			return GetBagVolumeInfo(index);
+			} catch (FormatException ex) {	
+				return new KeyValuePair<string, DatabaseOperations>(input.ToUpper(), vMan.DiscoveredBagVolumes[input.ToUpper()]);
+			} 
+			return GetBagVolumeFromIndex(index);
 		}
 
-		KeyValuePair<string, DatabaseOperations> GetBagVolumeInfo(int index) {
-			
+		KeyValuePair<string, DatabaseOperations> GetBagVolumeFromIndex(int index) {
+			Dictionary<string, DatabaseOperations> bagVolumes = vMan.DiscoveredBagVolumes;
 			CreateDriveBagMap();
 
-			if (index > vMan.GetKnownBagConfigs().Count - 1) {
+			if (index > bagVolumes.Count - 1) {
 				PrintError(new IndexOutOfRangeException());
 				return new KeyValuePair<string, DatabaseOperations>();
 			}
 
-			string dinfo = vMan.GetKnownBagConfigs().Keys.ElementAt<string>(index);
-			DatabaseOperations op = vMan.GetKnownBagConfigs()[dinfo];
+			string dinfo = bagVolumes.Keys.ElementAt<string>(index);
+			DatabaseOperations op = bagVolumes[dinfo];
 
 			return new KeyValuePair<string, DatabaseOperations>(dinfo, op);
 		}
 
 		void PrintStats(string[] args) {
 			if (args.Length > 0) {
-				KeyValuePair<string, DatabaseOperations> volPair = GetBagVolumeInfo(args[0]);
+				try {
+					KeyValuePair<string, DatabaseOperations> volPair = GetBagVolumeInfo(args[0]);
 
-				Console.WriteLine("Volume: " + volPair.Key);
-				Console.WriteLine("Database version: " + volPair.Value.GetVersion());
-				Console.WriteLine("Bag location: " + volPair.Value.GetLocation());
-				Console.WriteLine("Synch status: " + (SynchronizationManager.GetInstance().GetSynchronizedDrives().Contains(volPair.Key) ? "synchronized" : "not synchronized"));
+					Console.WriteLine("Volume: " + volPair.Key);
+					Console.WriteLine("Database version: " + volPair.Value.GetVersion());
+					Console.WriteLine("Bag location: " + volPair.Value.GetLocation());
+					Console.WriteLine("Synch status: " + (SynchronizationManager.GetInstance().SynchronizedBagVolumes.Contains(volPair.Key) ? "synchronized" : "not synchronized"));
+				} catch (Exception e) {
+					PrintError(e);
+				}				
 			} else {
-				PrintError("Please provide an index");
+				PrintError("Invalid number of arguments");
 			}
 
 			
@@ -167,10 +168,10 @@ namespace MjFSv2Watcher {
 		/// <param name="force">Force create the map in case it did already exist</param>
 		void CreateDriveBagMap(bool force) {
 			if (force) {
-				vMan.GetBagConfigurations();
+				vMan.DiscoverBagVolumes();
 			} else {
-				if (vMan.GetKnownBagConfigs() == null) {
-					vMan.GetBagConfigurations();
+				if (vMan.DiscoveredBagVolumes == null) {
+					vMan.DiscoverBagVolumes();
 				}
 			}
 		}
@@ -180,43 +181,35 @@ namespace MjFSv2Watcher {
 				string path = args[0];
 				FileAttributes attr = File.GetAttributes(path);
 				if ((attr & FileAttributes.Directory) == FileAttributes.Directory) {
-					string driveRoot = System.IO.Path.GetPathRoot(path);
-					DriveInfo driveInfo = new DriveInfo(driveRoot);
-					CreateDriveBagMap();
-					if (!vMan.GetBagConfigurations().ContainsKey(driveInfo.ToString())) {
-						vMan.CreateBagVolume(driveInfo, path);
-						Console.WriteLine("Succesfully created a bag volume on " + driveInfo.ToString());
-					} else {
-						PrintError("This volume already has been configured for MjFS");
+					string drive = System.IO.Path.GetPathRoot(path);
+					try {
+						vMan.CreateBagVolume(drive, path);
+						Console.WriteLine("Successfully created a bag volume on " + drive);
+					} catch (VolumeMountManagerException e) {
+						PrintError(e);
 					}
 				} else {
 					PrintError("Given path is not a directory");
 				}
 			} else {
-				PrintError("Please provide a path");
+				PrintError("Invalid number of arguments");
 			}
 		}
 
 		void AddBagVolumeGUI() {
-			CreateDriveBagMap();
 			FolderBrowserDialog bd = new FolderBrowserDialog();
 			bd.Description = "Select a folder which contains all your files and will function as the volume's bag";
 			bd.RootFolder = Environment.SpecialFolder.MyComputer;
 
 			if(bd.ShowDialog() == DialogResult.OK) {
-				string driveRoot = System.IO.Path.GetPathRoot(bd.SelectedPath);
-				DriveInfo driveInfo = new DriveInfo(driveRoot);
-
-				if (!vMan.GetBagConfigurations().ContainsKey(driveInfo.ToString())) {
-					vMan.CreateBagVolume(driveInfo, bd.SelectedPath);
-					Console.WriteLine("Successfully created a bag volume on " + driveInfo.ToString());
-				} else {
-					// Drive is already present
-					PrintError("This volume already has been configured for MjFS");
+				string drive = System.IO.Path.GetPathRoot(bd.SelectedPath);		
+				try {
+					vMan.CreateBagVolume(drive, bd.SelectedPath);
+					Console.WriteLine("Successfully created a bag volume on " + drive);
+				} catch (VolumeMountManagerException e) {
+					PrintError(e);
 				}
-			} else {
-				PrintError("Action aborted by user");
-			}
+			} 
 		}
 
 		void DeleteBagVolume(string[] args) {
@@ -230,20 +223,20 @@ namespace MjFSv2Watcher {
 
 				CreateDriveBagMap();
 
-				if (index > vMan.GetKnownBagConfigs().Count - 1) {
+				if (index > vMan.DiscoveredBagVolumes.Count - 1) {
 					PrintError(new IndexOutOfRangeException());
 					return;
 				}
 
-				string drive = vMan.GetKnownBagConfigs().Keys.ElementAt<string>(index);
-				vMan.UnmountBagDrive(new DriveInfo(drive));
+				string drive = vMan.DiscoveredBagVolumes.Keys.ElementAt<string>(index);
+				vMan.UnmountBagVolume(drive);
 
 				File.Delete(drive + VolumeMountManager.CONFIG_FILE_NAME);
 
-				CreateDriveBagMap(true);
+				CreateDriveBagMap(true); // Force update
 				Console.WriteLine("Successfully removed bag volume on " + drive);
 			} else {
-				PrintError("Please provide an index");
+				PrintError("Invalid number of arguments");
 			}
 		}
 	}

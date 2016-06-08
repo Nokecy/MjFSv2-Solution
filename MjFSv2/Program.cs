@@ -19,8 +19,8 @@ namespace MjFSv2Lib {
 				Console.Read();
 			} else {
 				VolumeMountManager vMan = VolumeMountManager.GetInstance();
-				vMan.MountAllBags();
-				vMan.Mount();
+				vMan.MountBagVolumes();
+				vMan.MountMainVolume();
 			}
 			Console.WriteLine("Application exited");
 			Console.Read();
