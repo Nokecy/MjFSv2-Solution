@@ -20,6 +20,19 @@ namespace MjFSv2Lib.Database {
 			this._connection = con;
         }
 
+		/// <summary>
+		/// Is the associated database file still available?
+		/// </summary>
+		/// <returns></returns>
+		public bool IsAlive() {
+			string path = _connection.FileName;
+			if (path != null) {
+				return File.Exists(path);
+			} else {
+				return false;
+			}
+		}
+
 		public int DeleteItemTag(Item item, Tag tag) {
 			SQLiteCommand cmd = new SQLiteCommand(_connection);
 			cmd.CommandText = "DELETE FROM ItemTag WHERE tagId = @tagId AND itemId = @itemId";
@@ -48,18 +61,6 @@ namespace MjFSv2Lib.Database {
 		public string GetLocation() {
 			SQLiteCommand cmd = new SQLiteCommand(_connection);
 			cmd.CommandText = "SELECT location FROM Config";
-			cmd.Prepare();
-			SQLiteDataReader r = cmd.ExecuteReader();
-			if (r.Read()) {
-				return r[0].ToString();
-			} else {
-				return null;
-			}
-		}
-
-		public string GetHash() {
-			SQLiteCommand cmd = new SQLiteCommand(_connection);
-			cmd.CommandText = "SELECT hash FROM Config";
 			cmd.Prepare();
 			SQLiteDataReader r = cmd.ExecuteReader();
 			if (r.Read()) {
@@ -150,6 +151,10 @@ namespace MjFSv2Lib.Database {
 			return itemList;
 		}
 
+		/// <summary>
+		/// Return all tags that have their root visibility set to true
+		/// </summary>
+		/// <returns></returns>
 		public List<Tag> GetRootTags() {
 			SQLiteCommand cmd = new SQLiteCommand(_connection);
 			cmd.CommandText = "SELECT id FROM Tag WHERE rootVisible = 1";
@@ -164,6 +169,11 @@ namespace MjFSv2Lib.Database {
 			return tagList;
 		}
 
+		/// <summary>
+		/// Get a tag object by its label
+		/// </summary>
+		/// <param name="label"></param>
+		/// <returns></returns>
 		public Tag GetTag(string label) {
 			SQLiteCommand cmd = new SQLiteCommand(_connection);
 			cmd.CommandText = "SELECT * FROM Tag WHERE label = @label";
@@ -178,6 +188,10 @@ namespace MjFSv2Lib.Database {
 
 		}
 
+		/// <summary>
+		/// Get the collection of all tags in the database
+		/// </summary>
+		/// <returns></returns>
 		public List<Tag> GetTags() {
 			SQLiteCommand cmd = new SQLiteCommand(_connection);
 			cmd.CommandText = "SELECT * FROM Tag";
@@ -191,6 +205,11 @@ namespace MjFSv2Lib.Database {
 			return tagList;
 		}
 
+		/// <summary>
+		/// Return all tags associated with the given item
+		/// </summary>
+		/// <param name="item"></param>
+		/// <returns></returns>
 		public List<Tag> GetTagsByItem(Item item) {
 			SQLiteCommand cmd = new SQLiteCommand(_connection);
 			cmd.CommandText = "SELECT id, label, rootVisible FROM ItemTag, Tag WHERE itemID = @itemID AND tagId = id";
@@ -205,6 +224,11 @@ namespace MjFSv2Lib.Database {
 			return tagList;
 		}
 
+		/// <summary>
+		/// Associate tags to an item based on extension
+		/// </summary>
+		/// <param name="item"></param>
+		/// <returns></returns>
 		public int InsertDefaultItemTag(Item item) {
 			SQLiteCommand cmd = new SQLiteCommand(_connection);
 			cmd.CommandText = "SELECT tagID From ExtTagMap WHERE ext LIKE '%," + item.Extension + ",%'";
@@ -218,6 +242,12 @@ namespace MjFSv2Lib.Database {
 			}
 		}
 
+		/// <summary>
+		/// Insert an extension to tag mapping
+		/// </summary>
+		/// <param name="extension"></param>
+		/// <param name="tag"></param>
+		/// <returns></returns>
 		public int InsertExtTagMap(string extension, Tag tag) {
 			SQLiteCommand cmd = new SQLiteCommand(_connection);
 			cmd.CommandText = "INSERT INTO `ExtTagMap`(`ext`,`tagId`) VALUES(@ext, @tagId);";
@@ -227,6 +257,11 @@ namespace MjFSv2Lib.Database {
 			return cmd.ExecuteNonQuery();
 		}
 
+		/// <summary>
+		/// Insert an item into the database
+		/// </summary>
+		/// <param name="item"></param>
+		/// <returns></returns>
 		public int InsertItem(Item item) {
 			SQLiteCommand cmd = new SQLiteCommand(_connection);
 			cmd.CommandText = "INSERT INTO `Item`(`id`,`name`,`ext`,`size`,`attr`,`lat`,`lwt`,`ct`) VALUES (@id, @name, @ext, @size, @attr, @lat, @lwt, @ct)";
@@ -242,6 +277,12 @@ namespace MjFSv2Lib.Database {
 			return cmd.ExecuteNonQuery();
 		}
 
+		/// <summary>
+		/// Associate the tag to the given item
+		/// </summary>
+		/// <param name="item"></param>
+		/// <param name="tag"></param>
+		/// <returns></returns>
 		public int InsertItemTag(Item item, Tag tag) {
 			SQLiteCommand cmd = new SQLiteCommand(_connection);
 			cmd.CommandText = "INSERT INTO ItemTag(itemId, tagId) VALUES (@itemId, @tagId)";
@@ -251,6 +292,11 @@ namespace MjFSv2Lib.Database {
 			return cmd.ExecuteNonQuery();
 		}
 
+		/// <summary>
+		/// Insert a tag into the database
+		/// </summary>
+		/// <param name="tag"></param>
+		/// <returns></returns>
 		public int InsertTag(Tag tag) {
 			SQLiteCommand cmd = new SQLiteCommand(_connection);
 			cmd.CommandText = "INSERT INTO Tag(id, rootVisible) VALUES (@id, @rootVisible)";
@@ -292,6 +338,38 @@ namespace MjFSv2Lib.Database {
 			return cmd.ExecuteNonQuery();
 		}
 
+		public bool IsSound() {
+			string hash;
+			using (var md5 = System.Security.Cryptography.MD5.Create()) {
+				using (var stream = new FileStream(_connection.FileName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)) {
+					hash = BitConverter.ToString(md5.ComputeHash(stream)).Replace("-", "").ToLower();
+				}
+			}
+			string dbHash = GetHash();
+			if (hash != dbHash) {
+				return false;
+			} else {
+				return true;
+			}
+		}
+
+		public string GetHash() {
+			SQLiteCommand cmd = new SQLiteCommand(_connection);
+			cmd.CommandText = "SELECT hash FROM Config";
+			cmd.Prepare();
+			SQLiteDataReader r = cmd.ExecuteReader();
+			if (r.Read()) {
+				return r[0].ToString();
+			} else {
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Add the tables to an empty database
+		/// </summary>
+		/// <param name="bagPath"></param>
+		/// <returns></returns>
 		public int AddTables(string bagPath) {
 			SQLiteCommand cmd = new SQLiteCommand(_connection);
 			string databaseTables = Properties.Resources.database;

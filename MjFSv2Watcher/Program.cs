@@ -131,20 +131,18 @@ namespace MjFSv2Watcher {
 		void PrintStats(string[] args) {
 			if (args.Length > 0) {
 				try {
-					KeyValuePair<string, DatabaseOperations> volPair = GetBagVolumeInfo(args[0]);
-
-					Console.WriteLine("Volume: " + volPair.Key);
-					Console.WriteLine("Database version: " + volPair.Value.GetVersion());
-					Console.WriteLine("Bag location: " + volPair.Value.GetLocation());
-					Console.WriteLine("Synch status: " + (SynchronizationManager.GetInstance().SynchronizedBagVolumes.Contains(volPair.Key) ? "synchronized" : "not synchronized"));
+					KeyValuePair<string, DatabaseOperations> entry = GetBagVolumeInfo(args[0]);
+					Console.WriteLine("Volume: " + entry.Key);
+					Console.WriteLine("Database version: " + entry.Value.GetVersion());
+					Console.WriteLine("Bag location: " + entry.Value.GetLocation());
+					Console.WriteLine("Synchronization: " + (SynchronizationManager.GetInstance().SynchronizedBagVolumes.Contains(entry.Key) ? "on" : "off"));
+					Console.WriteLine("Condition: " + (entry.Value.IsSound() ? "good" : "corrupted"));
 				} catch (Exception e) {
 					PrintError(e);
 				}				
 			} else {
 				PrintError("Invalid number of arguments");
-			}
-
-			
+			}	
 		}
 
 		void PrintError(Exception ex) {
@@ -185,6 +183,7 @@ namespace MjFSv2Watcher {
 					try {
 						vMan.CreateBagVolume(drive, path);
 						Console.WriteLine("Successfully created a bag volume on " + drive);
+						CreateDriveBagMap(true);
 					} catch (VolumeMountManagerException e) {
 						PrintError(e);
 					}
@@ -206,6 +205,7 @@ namespace MjFSv2Watcher {
 				try {
 					vMan.CreateBagVolume(drive, bd.SelectedPath);
 					Console.WriteLine("Successfully created a bag volume on " + drive);
+					CreateDriveBagMap(true);
 				} catch (VolumeMountManagerException e) {
 					PrintError(e);
 				}
@@ -230,7 +230,8 @@ namespace MjFSv2Watcher {
 
 				string drive = vMan.DiscoveredBagVolumes.Keys.ElementAt<string>(index);
 				vMan.UnmountBagVolume(drive);
-
+				GC.Collect();
+				GC.WaitForPendingFinalizers();
 				File.Delete(drive + VolumeMountManager.CONFIG_FILE_NAME);
 
 				CreateDriveBagMap(true); // Force update

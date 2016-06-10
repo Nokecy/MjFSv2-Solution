@@ -39,12 +39,15 @@ namespace MjFSv2Lib.Manager {
 		public void StartSynchronization(KeyValuePair<string, DatabaseOperations> entry) {
 			string drive = entry.Key;
 			if (!watchDrives.ContainsKey(drive)) {
+				if (VolumeMountManager.GetInstance().DiscoveredBagVolumes.Count == 0) {
+					throw new SynchronizationManagerException("Before starting synchronization on any bag volume, please first discoved bag volumes on VolumeMountManager!");
+				}
 				FileSystemWatcher fsw = new FileSystemWatcher();
 				fsw.Path = drive + entry.Value.GetLocation() + "\\";
 				fsw.EnableRaisingEvents = true;
 				watchDrives.Add(drive, fsw);
 
-				fsw.Changed += (s, e) => {
+				/*fsw.Changed += (s, e) => {
 					FileInfo fInfo = new FileInfo(e.FullPath);
 					DriveInfo dInfo = new DriveInfo(fInfo.Directory.Root.Name);
 					DebugLogger.Log("Detected file change on file '" + fInfo.Name + "'");
@@ -57,7 +60,7 @@ namespace MjFSv2Lib.Manager {
 							DebugLogger.Log("Database reports: \n" + ex.Message);
 						}
 					}
-				};
+				};*/
 
 				fsw.Created += (s, e) => {
 					FileInfo fInfo = new FileInfo(e.FullPath);
@@ -68,10 +71,12 @@ namespace MjFSv2Lib.Manager {
 					if (fileItem != null) {
 						try {
 							op.InsertItem(fileItem);
-							op.InsertDefaultItemTag(fileItem);
+							//op.InsertDefaultItemTag(fileItem);
 						} catch (SQLiteException ex) {
 							DebugLogger.Log("Database reports: \n" + ex.Message);
 						}
+					} else {
+						DebugLogger.Log("Fileitem is null");
 					}
 				};
 
@@ -80,13 +85,36 @@ namespace MjFSv2Lib.Manager {
 					DriveInfo dInfo = new DriveInfo(fInfo.Directory.Root.Name);
 					DebugLogger.Log("Removed file '" + fInfo.Name + "'");
 					DatabaseOperations op = VolumeMountManager.GetInstance().DiscoveredBagVolumes[dInfo.ToString()];
-					Item fileItem = Helper.GetItemFromFileInfo(fInfo);
+					Item fileItem = Helper.GetItemFromId(fInfo.Name);
 					if (fileItem != null) {
 						try {
 							op.DeleteItem(fileItem);
-						} catch(SQLiteException ex) {
+						} catch (SQLiteException ex) {
 							DebugLogger.Log("Database reports: \n" + ex.Message);
 						}
+					} else {
+						DebugLogger.Log("Fileitem is null");
+					}
+				};
+
+				fsw.Renamed += (s, e) => {
+					FileInfo fInfo = new FileInfo(e.FullPath);
+					FileInfo oldfInfo = new FileInfo(e.OldFullPath);
+					DriveInfo dInfo = new DriveInfo(fInfo.Directory.Root.Name);
+					DebugLogger.Log("Renamed file '" + oldfInfo.Name + "' to '" + fInfo.Name + "'");
+					DatabaseOperations op = VolumeMountManager.GetInstance().DiscoveredBagVolumes[dInfo.ToString()];
+					Item fileItem = Helper.GetItemFromFileInfo(fInfo);
+					Item oldFileItem = Helper.GetItemFromId(oldfInfo.Name);
+
+					if (fileItem != null && oldfInfo != null) {
+						try {
+							op.DeleteItem(oldFileItem);
+							op.InsertItem(fileItem);
+						} catch (SQLiteException ex) {
+							DebugLogger.Log("Database reports: \n" + ex.Message);
+						}
+					} else {
+						DebugLogger.Log("Fileitem is null");
 					}
 				};
 			}

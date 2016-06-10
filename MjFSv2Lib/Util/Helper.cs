@@ -52,6 +52,11 @@ namespace MjFSv2Lib.Util {
 			}
 		}
 
+		public static Item GetItemFromId(string id) {
+			string name = id.Split(new Char[] { '.' })[0];
+			return new Item(id, name, name, 0, new DateTime(), new DateTime(), new DateTime(), new FileAttributes());
+		}
+
 		/// <summary>
 		/// Create a FileInformation object for the given Item
 		/// </summary>
