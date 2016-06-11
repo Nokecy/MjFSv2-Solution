@@ -21,7 +21,7 @@ namespace MjFSv2Lib.Manager {
 		private DatabaseManager dbMan = DatabaseManager.GetInstance(); // The configuration database manager
 
 		private Dictionary<string, DatabaseOperations> _mountedBagVolumes = new Dictionary<string, DatabaseOperations>(); // A map containing all currently mounted bag volumes
-		private Dictionary<string, DatabaseOperations> _discoveredBagVolumes; // A map containing all discovered bag volumes 
+		private Dictionary<string, DatabaseOperations> _discoveredBagVolumes = new Dictionary<string, DatabaseOperations>(); // A map containing all discovered bag volumes 
 
 		private VolumeMountManager() {
 			// Register eventhandler for changes to logical volumes
@@ -62,9 +62,6 @@ namespace MjFSv2Lib.Manager {
 		/// </summary>
 		public Dictionary<string, DatabaseOperations> DiscoveredBagVolumes {
 			get {
-				if (_discoveredBagVolumes == null) {
-					return null;
-				}
 				return new Dictionary<string, DatabaseOperations>(_discoveredBagVolumes);
 			}	
 		}
@@ -171,15 +168,17 @@ namespace MjFSv2Lib.Manager {
 		}
 
 		/// <summary>
-		/// Instantiate a new bag volume on the given volume
+		/// Instantiate a new bag volume on the given volume and adds it to the list of discovered bag volumes.
 		/// </summary>
 		/// <param name="dInfo"></param>
-		public void CreateBagVolume(string drive, string bagLocation) {
+		public DatabaseOperations CreateBagVolume(string drive, string bagLocation) {
 			DiscoverBagVolumes(); // Make sure we have the latest data
 			if (!_discoveredBagVolumes.Keys.Contains(drive.ToUpper())) {
-				DatabaseOperations op = dbMan.OpenConnection(drive + CONFIG_FILE_NAME);
+				DatabaseOperations op = dbMan.OpenConnection(drive + CONFIG_FILE_NAME);				
 				op.AddTables(bagLocation.Substring(3));
 				op.UpdateHash();
+				_discoveredBagVolumes.Add(drive.ToUpper(), op);
+				return op;
 			} else {
 				throw new VolumeMountManagerException("A bag has already been registed on this volume. Cannot instantiate more than one bag volume on any given volume.");
 			}

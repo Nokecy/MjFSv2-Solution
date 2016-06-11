@@ -1,6 +1,7 @@
 ﻿using MjFSv2Lib.Manager;
 using MjFSv2Lib.Util;
 using System;
+using System.Collections.Generic;
 
 namespace MjFSv2Lib {
 	class Program {
@@ -14,7 +15,7 @@ namespace MjFSv2Lib {
 			} else {
 				VolumeMountManager vMan = VolumeMountManager.GetInstance();
 				vMan.MountBagVolumes();
-				SynchronizationManager.GetInstance().StartSynchronization(vMan.DiscoveredBagVolumes);
+				SynchronizationManager.GetInstance().StartSynchronization(new List<string>(vMan.DiscoveredBagVolumes.Keys));
 				vMan.MountMainVolume();
 			}
 			Console.WriteLine("Application exited");

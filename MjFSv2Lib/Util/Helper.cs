@@ -22,9 +22,9 @@ namespace MjFSv2Lib.Util {
 				user = WindowsIdentity.GetCurrent();
 				WindowsPrincipal principal = new WindowsPrincipal(user);
 				isAdmin = principal.IsInRole(WindowsBuiltInRole.Administrator);
-			} catch (UnauthorizedAccessException ex) {
+			} catch (UnauthorizedAccessException) {
 				isAdmin = false;
-			} catch (Exception ex) {
+			} catch (Exception) {
 				isAdmin = false;
 			} finally {
 				if (user != null)

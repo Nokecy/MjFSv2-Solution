@@ -205,14 +205,14 @@ namespace MjFSv2Lib.Database {
 		/// <returns></returns>
 		public Tag GetTag(string label) {
 			SQLiteCommand cmd = new SQLiteCommand(_connection);
-			cmd.CommandText = "SELECT * FROM Tag WHERE label = @label";
+			cmd.CommandText = "SELECT * FROM Tag WHERE id = @id";
 			cmd.Prepare();
-			cmd.Parameters.AddWithValue("@label", label);
+			cmd.Parameters.AddWithValue("@id", label);
 			SQLiteDataReader r = cmd.ExecuteReader();
 			if (r.Read()) {
 				return new Tag(r[0].ToString(), Convert.ToBoolean(r[1]));
 			} else {
-				return new Tag("No tag", false);
+				return null;
 			}
 
 		}
@@ -241,7 +241,7 @@ namespace MjFSv2Lib.Database {
 		/// <returns></returns>
 		public List<Tag> GetTagsByItem(Item item) {
 			SQLiteCommand cmd = new SQLiteCommand(_connection);
-			cmd.CommandText = "SELECT id, label, rootVisible FROM ItemTag, Tag WHERE itemID = @itemID AND tagId = id";
+			cmd.CommandText = "SELECT id, rootVisible FROM ItemTag, Tag WHERE itemID = @itemID AND tagId = id";
 			cmd.Prepare();
 			cmd.Parameters.AddWithValue("@itemId", item.Id);
 			SQLiteDataReader r = cmd.ExecuteReader();
@@ -267,7 +267,7 @@ namespace MjFSv2Lib.Database {
 				string tagId = r[0].ToString();
 				return InsertItemTag(item, new Tag(tagId, false));
 			} else {
-				return 0;
+				return InsertItemTag(item, new Tag("miscellaneous", true));
 			}
 		}
 
@@ -335,13 +335,7 @@ namespace MjFSv2Lib.Database {
 			return cmd.ExecuteNonQuery();
 		}
 
-		public int TruncateTable(string tableName) {
-			SQLiteCommand cmd = new SQLiteCommand(_connection);
-			cmd.CommandText = "DELETE FROM " + tableName;
-			cmd.Prepare();
-			return cmd.ExecuteNonQuery();
-		}
-
+		
 		public int UpdateItem(Item item) {
 			SQLiteCommand cmd = new SQLiteCommand(_connection);
 			cmd.CommandText = "UPDATE `Item` SET name = @name, ext = @ext, size=@size WHERE id = @id;";
@@ -352,6 +346,8 @@ namespace MjFSv2Lib.Database {
 			cmd.Parameters.AddWithValue("@size", item.Size);
 			return cmd.ExecuteNonQuery();
 		}
+
+		#region Hashing and hash checker methods
 
 		public int UpdateHash() {
 			string hash;
@@ -402,6 +398,8 @@ namespace MjFSv2Lib.Database {
 			}
 		}
 
+		#endregion
+
 		/// <summary>
 		/// Add the tables to an empty database
 		/// </summary>
@@ -416,5 +414,15 @@ namespace MjFSv2Lib.Database {
 			cmd.Prepare();
 			return cmd.ExecuteNonQuery();
 		}
+
+		public int TruncateTable(string tableName) {
+			//TODO: don't use direct user input
+			SQLiteCommand cmd = new SQLiteCommand(_connection);
+			cmd.CommandText = "DELETE FROM " + tableName;
+			cmd.Prepare();
+			return cmd.ExecuteNonQuery();
+		}
+
+
 	}
 }

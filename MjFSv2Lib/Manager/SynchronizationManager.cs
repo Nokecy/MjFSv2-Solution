@@ -11,7 +11,8 @@ namespace MjFSv2Lib.Manager {
 	/// </summary>
 	public class SynchronizationManager {
 		private static SynchronizationManager instance = new SynchronizationManager();
-		private readonly Dictionary<string, FileSystemWatcher> watchDrives = new Dictionary<string, FileSystemWatcher>();
+		private readonly Dictionary<string, FileSystemWatcher> _watchedDrives = new Dictionary<string, FileSystemWatcher>();
+		private readonly VolumeMountManager vMan = VolumeMountManager.GetInstance();
 
 		private SynchronizationManager() { }
 
@@ -24,7 +25,7 @@ namespace MjFSv2Lib.Manager {
 		/// </summary>
 		public List<string> SynchronizedBagVolumes {
 			get {
-				return new List<string>(watchDrives.Keys);
+				return new List<string>(_watchedDrives.Keys);
 			}
 		}
 
@@ -32,27 +33,35 @@ namespace MjFSv2Lib.Manager {
 		/// Start synchronization of the given bag volume entry
 		/// </summary>
 		/// <param name="entry"></param>
-		public void StartSynchronization(KeyValuePair<string, DatabaseOperations> entry) {
-			string drive = entry.Key;
-			if (!watchDrives.ContainsKey(drive)) {
-				if (VolumeMountManager.GetInstance().DiscoveredBagVolumes.Count == 0) {
-					throw new SynchronizationManagerException("Before starting synchronization on any bag volume, please first discoved bag volumes on VolumeMountManager!");
+		public void StartSynchronization(string drive) {
+
+			if (!_watchedDrives.ContainsKey(drive)) {
+				if (vMan.DiscoveredBagVolumes.Count == 0) {
+					throw new SynchronizationManagerException("Unable to start synchronization: there are no registered bag volumes.");
 				}
 				FileSystemWatcher fsw = new FileSystemWatcher();
-				fsw.Path = drive + entry.Value.GetBagLocation() + "\\";
-				fsw.EnableRaisingEvents = true;
-				watchDrives.Add(drive, fsw);
+				DatabaseOperations op;
+				if (!vMan.DiscoveredBagVolumes.TryGetValue(drive, out op)) {
+					throw new SynchronizationManagerException("Unable to start synchronization: bag volume is not registered.");
+				} 
+				
 
+				fsw.Path = drive + op.GetBagLocation() + "\\";
+				fsw.EnableRaisingEvents = true;
+				_watchedDrives.Add(drive, fsw);
+
+				// Assign event handlers for the FileWathcer on this volume
+				#region fsw event handlers
 				fsw.Created += (s, e) => {
 					FileInfo fInfo = new FileInfo(e.FullPath);
 					DriveInfo dInfo = new DriveInfo(fInfo.Directory.Root.Name);
 					DebugLogger.Log("Detected new file '" + fInfo.Name + "'");
-					DatabaseOperations op = VolumeMountManager.GetInstance().DiscoveredBagVolumes[dInfo.ToString()];
+					DatabaseOperations tempOp = VolumeMountManager.GetInstance().DiscoveredBagVolumes[dInfo.ToString()];
 					Item fileItem = Helper.GetItemFromFileInfo(fInfo);
 					if (fileItem != null) {
 						try {
-							op.InsertItem(fileItem);
-							//op.InsertDefaultItemTag(fileItem);
+							tempOp.InsertItem(fileItem);
+							tempOp.InsertDefaultItemTag(fileItem);
 						} catch (SQLiteException ex) {
 							DebugLogger.Log("Database reports: \n" + ex.Message);
 						}
@@ -65,11 +74,11 @@ namespace MjFSv2Lib.Manager {
 					FileInfo fInfo = new FileInfo(e.FullPath);
 					DriveInfo dInfo = new DriveInfo(fInfo.Directory.Root.Name);
 					DebugLogger.Log("Removed file '" + fInfo.Name + "'");
-					DatabaseOperations op = VolumeMountManager.GetInstance().DiscoveredBagVolumes[dInfo.ToString()];
+					DatabaseOperations tempOp = VolumeMountManager.GetInstance().DiscoveredBagVolumes[dInfo.ToString()];
 					Item fileItem = Helper.GetItemFromId(fInfo.Name);
 					if (fileItem != null) {
 						try {
-							op.DeleteItem(fileItem);
+							tempOp.DeleteItem(fileItem);
 						} catch (SQLiteException ex) {
 							DebugLogger.Log("Database reports: \n" + ex.Message);
 						}
@@ -83,14 +92,15 @@ namespace MjFSv2Lib.Manager {
 					FileInfo oldfInfo = new FileInfo(e.OldFullPath);
 					DriveInfo dInfo = new DriveInfo(fInfo.Directory.Root.Name);
 					DebugLogger.Log("Renamed file '" + oldfInfo.Name + "' to '" + fInfo.Name + "'");
-					DatabaseOperations op = VolumeMountManager.GetInstance().DiscoveredBagVolumes[dInfo.ToString()];
+					DatabaseOperations tempOp = VolumeMountManager.GetInstance().DiscoveredBagVolumes[dInfo.ToString()];
 					Item fileItem = Helper.GetItemFromFileInfo(fInfo);
 					Item oldFileItem = Helper.GetItemFromId(oldfInfo.Name);
 
 					if (fileItem != null && oldfInfo != null) {
 						try {
-							op.DeleteItem(oldFileItem);
-							op.InsertItem(fileItem);
+							tempOp.DeleteItem(oldFileItem);
+							tempOp.InsertItem(fileItem);
+							tempOp.InsertDefaultItemTag(fileItem);
 						} catch (SQLiteException ex) {
 							DebugLogger.Log("Database reports: \n" + ex.Message);
 						}
@@ -98,6 +108,7 @@ namespace MjFSv2Lib.Manager {
 						DebugLogger.Log("Fileitem is null");
 					}
 				};
+				#endregion
 			}
 		}
 
@@ -105,9 +116,9 @@ namespace MjFSv2Lib.Manager {
 		/// Start synchronization of all given bag volumes
 		/// </summary>
 		/// <param name="bagVolumes"></param>
-		public void StartSynchronization(Dictionary<string, DatabaseOperations> bagVolumes) {
-			foreach (KeyValuePair<string, DatabaseOperations> entry in bagVolumes) {
-				StartSynchronization(entry);
+		public void StartSynchronization(List<string> bagVolumes) {
+			foreach (string drive in bagVolumes) {
+				StartSynchronization(drive);
 			}
 		}
 
@@ -117,11 +128,11 @@ namespace MjFSv2Lib.Manager {
 		/// <param name="drive"></param>
 		public void StopSynchronization(string drive) {
 			FileSystemWatcher fsw;
-			if (watchDrives.TryGetValue(drive, out fsw)) {
+			if (_watchedDrives.TryGetValue(drive, out fsw)) {
 				fsw.Dispose();
-				watchDrives.Remove(drive);
+				_watchedDrives.Remove(drive);
 			} else {
-				throw new SynchronizationManagerException("Cannot stop synchronization on unregistered volume");
+				throw new SynchronizationManagerException("Cannot stop synchronization: there is no known bag volume on this given drive.");
 			}
 		}
 
@@ -129,10 +140,41 @@ namespace MjFSv2Lib.Manager {
 		/// Stop synchronization of all registerd bag volumes
 		/// </summary>
 		public void StopSynchronization() {
-			foreach (KeyValuePair<string, FileSystemWatcher> entry in watchDrives) {
+			foreach (KeyValuePair<string, FileSystemWatcher> entry in _watchedDrives) {
 				entry.Value.Dispose();
 			}
-			watchDrives.Clear();
+			_watchedDrives.Clear();
+		}
+
+		/// <summary>
+		/// Remove any items and their associated tags from the database and add new ones for the files currently in the bag location.
+		/// This method can also be used to initialize a newly created bag volume already containing files.
+		/// </summary>
+		/// <param name="drive"></param>
+		public void Resynchronize(string drive) {
+			drive = drive.ToUpper();
+			if (vMan.DiscoveredBagVolumes.Count == 0) {
+				throw new SynchronizationManagerException("Unable to start synchronization: there are no registered bag volumes.");
+			}
+			DatabaseOperations op;
+			if (!VolumeMountManager.GetInstance().DiscoveredBagVolumes.TryGetValue(drive, out op)) {
+				throw new SynchronizationManagerException("Unable to start synchronization: bag volume is not registered.");
+			}
+			StopSynchronization(drive); // Stop synching
+			op.TruncateTable("Item");
+			op.TruncateTable("ItemTag");
+
+			string path = drive + op.GetBagLocation() + "\\";
+			DirectoryInfo dInfo = new DirectoryInfo(path);
+			if (dInfo.Exists) {
+				foreach (FileInfo fInfo in dInfo.GetFiles()) {
+					Item fileItem = Helper.GetItemFromFileInfo(fInfo);
+					op.InsertItem(fileItem);
+					op.InsertDefaultItemTag(fileItem);
+				}
+			} else {
+				throw new SynchronizationManagerException("Bag location does not exist on volume " + drive);
+			}
 		}
 	}
 }

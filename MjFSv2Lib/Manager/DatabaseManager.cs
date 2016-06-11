@@ -47,7 +47,7 @@ namespace MjFSv2Lib.Manager {
 					if (!SUPPORTED_DB_VER.Contains(loadedVer)) {
 						throw new NotSupportedException("Database version " + loadedVer + " is not supported.");
 					}
-				} catch (SQLiteException ex) {
+				} catch (SQLiteException) {
 					throw new NotSupportedException("Database format not supported");
 				}
 			}

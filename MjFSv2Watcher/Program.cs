@@ -1,5 +1,6 @@
 ﻿using MjFSv2Lib.Database;
 using MjFSv2Lib.Manager;
+using MjFSv2Lib.Model;
 using MjFSv2Lib.Util;
 using System;
 using System.Collections.Generic;
@@ -9,7 +10,7 @@ using System.Windows.Forms;
 
 namespace MjFSv2Watcher {
 	class Program {
-		private VolumeMountManager vMan = VolumeMountManager.GetInstance();
+		private readonly VolumeMountManager vMan = VolumeMountManager.GetInstance();
 
 		[STAThread]
 		static void Main(string[] args) {
@@ -20,7 +21,7 @@ namespace MjFSv2Watcher {
 				Console.Read();
 			} else {
 				Program p = new Program();
-				p.CreateDriveBagMap();
+				p.EnsureBagVolumes();
 				p.ProcessInput(Console.ReadLine());
 			}
 		}
@@ -58,12 +59,12 @@ namespace MjFSv2Watcher {
 			Console.WriteLine("{0, -30} {1, -40}", new string[] { "ls", "Show a list of all currently present bag volumes" });
 			Console.WriteLine("{0, -30} {1, -40}", new string[] { "stat [volume]", "Show detailed status information for a bag volume" });
 			Console.WriteLine("{0, -30} {1, -40}", new string[] { "add [path to bag]", "Add a bag volume by specifying the bag location" });
-			Console.WriteLine("{0, -30} {1, -40}", new string[] { "add", "Add a bag volume using directory picker dialog" });
+			Console.WriteLine("{0, -30} {1, -40}", new string[] { "add", "Add a bag volume using a GUI" });
 			Console.WriteLine("{0, -30} {1, -40}", new string[] { "remove [volume]", "Unregister the volume as bag volume" });
 		}
 
 		void PrintList() {
-			CreateDriveBagMap(true);
+			EnsureBagVolumes(true);
 			int i = 0;
 			foreach(KeyValuePair<string, DatabaseOperations> entry in vMan.DiscoveredBagVolumes) {
 				Console.WriteLine("[" + i + "] " + entry.Key);
@@ -75,7 +76,7 @@ namespace MjFSv2Watcher {
 			int index = 0;
 			try {
 				index = Convert.ToInt32(input);
-			} catch (FormatException ex) {	
+			} catch (FormatException) {	
 				return new KeyValuePair<string, DatabaseOperations>(input.ToUpper(), vMan.DiscoveredBagVolumes[input.ToUpper()]);
 			} 
 			return GetBagVolumeFromIndex(index);
@@ -83,7 +84,7 @@ namespace MjFSv2Watcher {
 
 		KeyValuePair<string, DatabaseOperations> GetBagVolumeFromIndex(int index) {
 			Dictionary<string, DatabaseOperations> bagVolumes = vMan.DiscoveredBagVolumes;
-			CreateDriveBagMap();
+			EnsureBagVolumes();
 
 			if (index > bagVolumes.Count - 1) {
 				PrintError(new IndexOutOfRangeException());
@@ -120,21 +121,21 @@ namespace MjFSv2Watcher {
 		}
 
 		/// <summary>
-		/// Create the map of drives to database operations. If the map already exists, skip.
+		/// Ensure bag volumes are discovered by the <see cref="VolumeMountManager"/>
 		/// </summary>
-		void CreateDriveBagMap() {
-			CreateDriveBagMap(false);
+		void EnsureBagVolumes() {
+			EnsureBagVolumes(false);
 		}
 
 		/// <summary>
-		/// Create the map of drives to database operations
+		/// Ensure bag volumes are discovered by the <see cref="VolumeMountManager"/>. Set <paramref name="force"/> to force update discovered bag volumes.
 		/// </summary>
 		/// <param name="force">Force create the map in case it did already exist</param>
-		void CreateDriveBagMap(bool force) {
+		void EnsureBagVolumes(bool force) {
 			if (force) {
 				vMan.DiscoverBagVolumes();
 			} else {
-				if (vMan.DiscoveredBagVolumes == null) {
+				if (vMan.DiscoveredBagVolumes.Count == 0) {
 					vMan.DiscoverBagVolumes();
 				}
 			}
@@ -145,14 +146,7 @@ namespace MjFSv2Watcher {
 				string path = args[0];
 				FileAttributes attr = File.GetAttributes(path);
 				if ((attr & FileAttributes.Directory) == FileAttributes.Directory) {
-					string drive = System.IO.Path.GetPathRoot(path);
-					try {
-						vMan.CreateBagVolume(drive, path);
-						Console.WriteLine("Successfully created a bag volume on " + drive);
-						CreateDriveBagMap(true);
-					} catch (VolumeMountManagerException e) {
-						PrintError(e);
-					}
+					AddBagHelper(path);
 				} else {
 					PrintError("Given path is not a directory");
 				}
@@ -167,15 +161,27 @@ namespace MjFSv2Watcher {
 			bd.RootFolder = Environment.SpecialFolder.MyComputer;
 
 			if(bd.ShowDialog() == DialogResult.OK) {
-				string drive = System.IO.Path.GetPathRoot(bd.SelectedPath);		
-				try {
-					vMan.CreateBagVolume(drive, bd.SelectedPath);
-					Console.WriteLine("Successfully created a bag volume on " + drive);
-					CreateDriveBagMap(true);
-				} catch (VolumeMountManagerException e) {
-					PrintError(e);
-				}
+				AddBagHelper(bd.SelectedPath);
 			} 
+		}
+
+		private void AddBagHelper(string path) {
+			string drive = System.IO.Path.GetPathRoot(path);
+			try {
+				
+				DatabaseOperations op = vMan.CreateBagVolume(drive, path);
+				DirectoryInfo dInfo = new DirectoryInfo(path);
+
+				foreach (FileInfo fInfo in dInfo.GetFiles()) {
+					Item fileItem = Helper.GetItemFromFileInfo(fInfo);
+					op.InsertItem(fileItem);
+					op.InsertDefaultItemTag(fileItem);
+				}
+
+				Console.WriteLine("Successfully created a bag volume on " + drive);
+			} catch (VolumeMountManagerException e) {
+				PrintError(e);
+			}
 		}
 
 		void DeleteBagVolume(string[] args) {
@@ -187,7 +193,7 @@ namespace MjFSv2Watcher {
 					PrintError(ex);
 				}
 
-				CreateDriveBagMap();
+				EnsureBagVolumes();
 
 				if (index > vMan.DiscoveredBagVolumes.Count - 1) {
 					PrintError(new IndexOutOfRangeException());
@@ -200,13 +206,11 @@ namespace MjFSv2Watcher {
 				GC.WaitForPendingFinalizers();
 				File.Delete(drive + VolumeMountManager.CONFIG_FILE_NAME);
 
-				CreateDriveBagMap(true); // Force update
+				EnsureBagVolumes(true); // Force update
 				Console.WriteLine("Successfully removed bag volume on " + drive);
 			} else {
 				PrintError("Invalid number of arguments");
 			}
 		}
-	}
-
-	
+	}	
 }
