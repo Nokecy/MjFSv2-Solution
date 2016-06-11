@@ -20,9 +20,11 @@ namespace MjFSv2Lib {
 			} else {
 				VolumeMountManager vMan = VolumeMountManager.GetInstance();
 				vMan.MountBagVolumes();
+				SynchronizationManager.GetInstance().StartSynchronization(vMan.DiscoveredBagVolumes);
 				vMan.MountMainVolume();
 			}
 			Console.WriteLine("Application exited");
+
 			Console.Read();
 		}
 	}

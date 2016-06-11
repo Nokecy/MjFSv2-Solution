@@ -37,7 +37,7 @@ namespace MjFSv2Lib.FileSystem {
 					string fileName = Path.GetFileName(path);
 					if (entry.Value.GetItem(fileName) != null) {
 						string driveLetter = entry.Key;
-						string bagLocation = entry.Value.GetLocation();
+						string bagLocation = entry.Value.GetBagLocation();
 						string result = driveLetter + bagLocation + "\\" + fileName;
 						if (File.Exists(result)) {
 							return result;
@@ -50,7 +50,7 @@ namespace MjFSv2Lib.FileSystem {
 				// There is a single bag mounted. Directly return the item's location.
 				KeyValuePair<string, DatabaseOperations> entry =  bagVolumes.First<KeyValuePair<string, DatabaseOperations>>();
 				string driveLetter = entry.Key;
-				string bagLocation = entry.Value.GetLocation();
+				string bagLocation = entry.Value.GetBagLocation();
 				string result = driveLetter + bagLocation + "\\" + Path.GetFileName(path);
 				if (File.Exists(result)) {
 					return result;

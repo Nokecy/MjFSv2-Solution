@@ -43,24 +43,9 @@ namespace MjFSv2Lib.Manager {
 					throw new SynchronizationManagerException("Before starting synchronization on any bag volume, please first discoved bag volumes on VolumeMountManager!");
 				}
 				FileSystemWatcher fsw = new FileSystemWatcher();
-				fsw.Path = drive + entry.Value.GetLocation() + "\\";
+				fsw.Path = drive + entry.Value.GetBagLocation() + "\\";
 				fsw.EnableRaisingEvents = true;
 				watchDrives.Add(drive, fsw);
-
-				/*fsw.Changed += (s, e) => {
-					FileInfo fInfo = new FileInfo(e.FullPath);
-					DriveInfo dInfo = new DriveInfo(fInfo.Directory.Root.Name);
-					DebugLogger.Log("Detected file change on file '" + fInfo.Name + "'");
-					DatabaseOperations op = VolumeMountManager.GetInstance().DiscoveredBagVolumes[dInfo.ToString()];
-					Item fileItem = Helper.GetItemFromFileInfo(fInfo);
-					if (fileItem != null) {
-						try {
-							op.UpdateItem(fileItem);
-						} catch (SQLiteException ex) {
-							DebugLogger.Log("Database reports: \n" + ex.Message);
-						}
-					}
-				};*/
 
 				fsw.Created += (s, e) => {
 					FileInfo fInfo = new FileInfo(e.FullPath);

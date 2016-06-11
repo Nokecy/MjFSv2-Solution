@@ -21,7 +21,7 @@ namespace MjFSv2Lib.Database {
         }
 
 		/// <summary>
-		/// Is the associated database file still available?
+		/// Returns a boolean indicating whether the database file is in existence.
 		/// </summary>
 		/// <returns></returns>
 		public bool IsAlive() {
@@ -33,6 +33,12 @@ namespace MjFSv2Lib.Database {
 			}
 		}
 
+		/// <summary>
+		/// Remove a tag from the given item
+		/// </summary>
+		/// <param name="item"></param>
+		/// <param name="tag"></param>
+		/// <returns></returns>
 		public int DeleteItemTag(Item item, Tag tag) {
 			SQLiteCommand cmd = new SQLiteCommand(_connection);
 			cmd.CommandText = "DELETE FROM ItemTag WHERE tagId = @tagId AND itemId = @itemId";
@@ -42,7 +48,22 @@ namespace MjFSv2Lib.Database {
 			return cmd.ExecuteNonQuery();
 		}
 
+		/// <summary>
+		/// Delete the item, also removing any tag associations
+		/// </summary>
+		/// <param name="item"></param>
+		/// <returns></returns>
 		public int DeleteItem(Item item) {
+			return DeleteItemOnly(item) + DeleteItemTags(item);
+		}
+
+
+		/// <summary>
+		/// Delete the item without removing tag associatations
+		/// </summary>
+		/// <param name="item"></param>
+		/// <returns></returns>
+		public int DeleteItemOnly(Item item) {
 			SQLiteCommand cmd = new SQLiteCommand(_connection);
 			cmd.CommandText = "DELETE FROM Item WHERE id = @id";
 			cmd.Prepare();
@@ -50,15 +71,20 @@ namespace MjFSv2Lib.Database {
 			return cmd.ExecuteNonQuery();
 		}
 
-		public int DeleteItem(string id) {
+		/// <summary>
+		/// Delete all tags from the given item
+		/// </summary>
+		/// <param name="item"></param>
+		/// <returns></returns>
+		public int DeleteItemTags(Item item) {
 			SQLiteCommand cmd = new SQLiteCommand(_connection);
-			cmd.CommandText = "DELETE FROM Item WHERE id = @id";
+			cmd.CommandText = "DELETE FROM ItemTag WHERE  itemId = @id";
 			cmd.Prepare();
-			cmd.Parameters.AddWithValue("@id", id);
+			cmd.Parameters.AddWithValue("@id", item.Id);
 			return cmd.ExecuteNonQuery();
 		}
 
-		public string GetLocation() {
+		public string GetBagLocation() {
 			SQLiteCommand cmd = new SQLiteCommand(_connection);
 			cmd.CommandText = "SELECT location FROM Config";
 			cmd.Prepare();
@@ -100,6 +126,11 @@ namespace MjFSv2Lib.Database {
 			}
 		}
 
+		/// <summary>
+		/// Return all items for the given list of tags
+		/// </summary>
+		/// <param name="tags"></param>
+		/// <returns></returns>
 		public List<Item> GetItemsByCompositeTag(List<Tag> tags) {
 			int c = tags.Count;
 
@@ -338,6 +369,10 @@ namespace MjFSv2Lib.Database {
 			return cmd.ExecuteNonQuery();
 		}
 
+		/// <summary>
+		/// Check whether the database is in a sound state, e.g. the internal hashcode matches that of the file
+		/// </summary>
+		/// <returns></returns>
 		public bool IsSound() {
 			string hash;
 			using (var md5 = System.Security.Cryptography.MD5.Create()) {
@@ -353,6 +388,10 @@ namespace MjFSv2Lib.Database {
 			}
 		}
 
+		/// <summary>
+		/// Return the hash stored in the database
+		/// </summary>
+		/// <returns></returns>
 		public string GetHash() {
 			SQLiteCommand cmd = new SQLiteCommand(_connection);
 			cmd.CommandText = "SELECT hash FROM Config";

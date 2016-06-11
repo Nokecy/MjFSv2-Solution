@@ -25,19 +25,11 @@ namespace MjFSv2Watcher {
 			} else {
 				Program p = new Program();
 				p.CreateDriveBagMap();
-				p.CreateWatcher();
 				p.ProcessInput(Console.ReadLine());
 			}
 		}
 
-		public void CreateWatcher() {
-			CreateDriveBagMap();
-			SynchronizationManager.GetInstance().StartSynchronization(vMan.DiscoveredBagVolumes);
-		}
-
 		public void ProcessInput(string input) {
-			Console.WriteLine("Processsing input '" + input + "'");
-
 			string[] cInput = input.ToLower().Split(new char[] { ' ' });
 
 			string command = cInput[0];
@@ -59,22 +51,19 @@ namespace MjFSv2Watcher {
 				PrintStats(args);
 			} else if (command == "remove") {
 				DeleteBagVolume(args);
-			} else if (command == "synch") {
-				Synch(args);
 			} else {
 				Console.WriteLine("Unknown command '" + command + "'");
 			}
 			Console.WriteLine();
-			ProcessInput(Console.ReadLine());
+			ProcessInput(Console.ReadLine()); // Process next set of input
 		}
 
 		void PrintUsage() {
-			Console.WriteLine("ls -- list all volumes configured for MjFS");
-			Console.WriteLine("stat [volume index] -- show detailed status of the given volume");
-			Console.WriteLine("add [path to dir] -- configure the given drive for MjFS with the given folder as bag");
-			Console.WriteLine("add -- configure any drive for MjFS");
-			Console.WriteLine("remove [volume index] -- remove the MjFS configuration of the given volume");
-			Console.WriteLine("synch [volume index] [on|off]");
+			Console.WriteLine("{0, -30} {1, -40}", new string[] { "ls", "Show a list of all currently present bag volumes" });
+			Console.WriteLine("{0, -30} {1, -40}", new string[] { "stat [volume]", "Show detailed status information for a bag volume" });
+			Console.WriteLine("{0, -30} {1, -40}", new string[] { "add [path to bag]", "Add a bag volume by specifying the bag location" });
+			Console.WriteLine("{0, -30} {1, -40}", new string[] { "add", "Add a bag volume using directory picker dialog" });
+			Console.WriteLine("{0, -30} {1, -40}", new string[] { "remove [volume]", "Unregister the volume as bag volume" });
 		}
 
 		void PrintList() {
@@ -83,23 +72,6 @@ namespace MjFSv2Watcher {
 			foreach(KeyValuePair<string, DatabaseOperations> entry in vMan.DiscoveredBagVolumes) {
 				Console.WriteLine("[" + i + "] " + entry.Key);
 				i++;
-			}
-		}
-
-		void Synch(string[] args) {
-			if (args.Length == 2) {
-				KeyValuePair<string, DatabaseOperations> entry = GetBagVolumeInfo(args[0]);
-				SynchronizationManager synchMan = SynchronizationManager.GetInstance();
-				if (args[1].ToLower() == "on") {
-					synchMan.StartSynchronization(entry);
-				} else if (args[1].ToLower() == "off") {
-					synchMan.StopSynchronization(entry.Key);
-				} else {
-					PrintError("Invalid argument '" + args[1] + "'");
-				}
-
-			} else {
-				PrintError("Invalid amount of arguments");
 			}
 		}
 
@@ -134,9 +106,7 @@ namespace MjFSv2Watcher {
 					KeyValuePair<string, DatabaseOperations> entry = GetBagVolumeInfo(args[0]);
 					Console.WriteLine("Volume: " + entry.Key);
 					Console.WriteLine("Database version: " + entry.Value.GetVersion());
-					Console.WriteLine("Bag location: " + entry.Value.GetLocation());
-					Console.WriteLine("Synchronization: " + (SynchronizationManager.GetInstance().SynchronizedBagVolumes.Contains(entry.Key) ? "on" : "off"));
-					Console.WriteLine("Condition: " + (entry.Value.IsSound() ? "good" : "corrupted"));
+					Console.WriteLine("Bag location: " + entry.Value.GetBagLocation());
 				} catch (Exception e) {
 					PrintError(e);
 				}				
@@ -146,11 +116,11 @@ namespace MjFSv2Watcher {
 		}
 
 		void PrintError(Exception ex) {
-			Console.WriteLine("An error occurred! The system reports the following: \n" + ex.Message);
+			Console.WriteLine("An error occurred! The system reports: \n" + ex.Message);
 		}
 
 		void PrintError(string msg) {
-			Console.WriteLine("An error occurred! The system reports the following: " + msg);
+			Console.WriteLine("An error occurred! The system reports: " + msg);
 		}
 
 		/// <summary>
