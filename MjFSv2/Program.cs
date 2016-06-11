@@ -1,12 +1,6 @@
-﻿using MjFSv2Lib.Database;
-using MjFSv2Lib.FileSystem;
-using MjFSv2Lib.Manager;
+﻿using MjFSv2Lib.Manager;
 using MjFSv2Lib.Util;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace MjFSv2Lib {
 	class Program {

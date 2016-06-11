@@ -1,14 +1,10 @@
 ﻿using MjFSv2Lib.Database;
 using MjFSv2Lib.Manager;
-using MjFSv2Lib.Model;
 using MjFSv2Lib.Util;
 using System;
 using System.Collections.Generic;
-using System.Data.SQLite;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace MjFSv2Watcher {
