@@ -41,11 +41,13 @@ namespace MjFSv2Lib.FileSystem {
 						string result = driveLetter + bagLocation + "\\" + fileName;
 						if (File.Exists(result)) {
 							return result;
-						} 
+						}
 					} else {
 						continue;
 					}
 				}
+			} else if (bagVolumes.Count == 0) {
+				// There are no mounted bags
 			} else {
 				// There is a single bag mounted. Directly return the item's location.
 				KeyValuePair<string, DatabaseOperations> entry =  bagVolumes.First();
@@ -60,13 +62,13 @@ namespace MjFSv2Lib.FileSystem {
 		}
 
 		public IList<FileInformation> FindFilesHelper(string fileName, string searchPattern) {
-			DebugLogger.Log("Find files for '" + fileName + "' with pattern '" + searchPattern + "'");
+			//DebugLogger.Log("Find files for '" + fileName + "' with pattern '" + searchPattern + "'");
 			List<FileInformation> result = new List<FileInformation>();
 
 			
 			List<string> dupTags = new List<string>();
 
-			List<Tag> tags = Helper.GetTagsFromPath(fileName);
+			HashSet<string> tags = Helper.GetTagsFromPath(fileName);
 			List<Item> items = new List<Item>();
 
 			List<DriveInfo> removable = new List<DriveInfo>();
@@ -87,9 +89,22 @@ namespace MjFSv2Lib.FileSystem {
 							}
 						}
 					} else {
-						items.AddRange(entry.Value.GetItemsByCompositeTag(tags));
+						// Remove all tags in the path from innerTags to prevent unnecesarry recursion
+						List<string> innerTags = entry.Value.GetInnerTags(tags.ToList()).Except(tags).ToList();
+
+						foreach (string tag in innerTags) {
+							FileInformation finfo = new FileInformation();
+							finfo.FileName = Helper.StringToProper(tag);
+							finfo.Attributes = System.IO.FileAttributes.Directory;
+							finfo.LastAccessTime = DateTime.Now;
+							finfo.LastWriteTime = DateTime.Now;
+							finfo.CreationTime = DateTime.Now;
+							result.Add(finfo);
+						}
+						items.AddRange(entry.Value.GetItemsByCompositeTag(tags.ToList<string>()));
 					}
-				} catch(SQLiteException) {
+				} catch(SQLiteException ex) {
+					DebugLogger.Log(ex.StackTrace + "\n" + ex.Message);
 					removable.Add(new DriveInfo(entry.Key));
 				}
 			}
@@ -184,7 +199,6 @@ namespace MjFSv2Lib.FileSystem {
 			string path = GetPath(fileName);
 
 			if (path == null) {
-				
 				FileInformation finfo = new FileInformation();
 				finfo.FileName = "FAKE";
 				finfo.Attributes = System.IO.FileAttributes.Directory;

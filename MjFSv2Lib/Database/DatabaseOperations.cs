@@ -13,9 +13,19 @@ namespace MjFSv2Lib.Database {
 	/// </summary>
 	public class DatabaseOperations {
 		private readonly SQLiteConnection _connection;
+		private String _bagPath;
 
 		public DatabaseOperations (SQLiteConnection con) {
 			this._connection = con;
+
+			if (IsAlive()) {
+				try {
+					_bagPath = Path.GetPathRoot(con.FileName) + this.GetBagLocation() + "\\";
+					DebugLogger.Log("Initialized DatabaseOperations for '" + _bagPath + "'");
+				} catch(SQLiteException) {
+					// IDK
+				}		
+			}		
         }
 
 		/// <summary>
@@ -129,53 +139,34 @@ namespace MjFSv2Lib.Database {
 		/// </summary>
 		/// <param name="tags"></param>
 		/// <returns></returns>
-		public List<Item> GetItemsByCompositeTag(List<Tag> tags) {
+		public List<Item> GetItemsByCompositeTag(List<string> tags) {
 			int c = tags.Count;
+			List<Item> itemList = new List<Item>();
 
-			//The following piece of code is a bit dramatic in that it creates an SQL query on-demand #YOTH16
-
-			// Build FROM clause
-			StringBuilder sbFrom = new StringBuilder("FROM");
+			// Build JOIN clauses
+			StringBuilder sbJoin = new StringBuilder();
 			for (int i = 0; i < c; i++) {
-				if (i != 0) {
-					sbFrom.Append(",");
-				}
-				sbFrom.Append(" ItemTag a" + i);
-			}
-
-			// Build WHERE clause
-			StringBuilder sbWhere = new StringBuilder(" WHERE ");
-			for (int i = 0; i < c; i++) {
-				sbWhere.Append("a" + i + ".tagId = @t" + i + " AND ");
-			}
-
-			// Build last part of WHERE clause
-			StringBuilder sbClause = new StringBuilder();
-			if (c > 1) {
-				for (int i = 0; i < c; i++) {
-					if (i != 0) {
-						sbClause.Append(" = ");
-					}
-					sbClause.Append("a" + i + ".itemId");
-				}
-			} else {
-				// Remove the final AND from the where clause
-				sbWhere.Remove(sbWhere.Length - 5, 5);
+				sbJoin.Append("INNER JOIN ItemTag it" + i + " ON it" + i + ".tagId = @t" + i + " AND it" + i + ".itemId = i.id ");
 			}
 
 			// SQL prepared statement
 			SQLiteCommand cmd = new SQLiteCommand(_connection);
-			cmd.CommandText = "SELECT a0.itemId " + sbFrom.ToString() + sbWhere.ToString() + sbClause.ToString();
+			cmd.CommandText = "SELECT i.* FROM Item i " + sbJoin.ToString();
 			cmd.Prepare();
 
 			// Fill all parameters with their corresponding values
 			for (int i = 0; i < c; i++) {
-				cmd.Parameters.AddWithValue("@t" + i, tags[i].Id);
+				cmd.Parameters.AddWithValue("@t" + i, tags[i].ToLower());
 			}
 			SQLiteDataReader r = cmd.ExecuteReader();
-			List<Item> itemList = new List<Item>();
 			while (r.Read()) {
-				itemList.Add(GetItem(r[0].ToString()));
+				Item it = new Item(r[0].ToString(),
+					r[1].ToString(), r[2].ToString(),
+					Convert.ToInt64(r[3].ToString()), Convert.ToDateTime(r[5].ToString()),
+					Convert.ToDateTime(r[6].ToString()), Convert.ToDateTime(r[7].ToString()),
+					Helper.GetFileAttributesFromInt(Convert.ToInt32(r[4].ToString())));
+
+				itemList.Add(it);
 			}
 			return itemList;
 		}
@@ -192,7 +183,7 @@ namespace MjFSv2Lib.Database {
 
 			List<Tag> tagList = new List<Tag>();
 			while (r.Read()) {
-				Tag t = new Tag(r[0].ToString(), true);
+				Tag t = new Tag(r[0].ToString().ToLower(), true);
 				tagList.Add(t);
 			}
 			return tagList;
@@ -259,16 +250,12 @@ namespace MjFSv2Lib.Database {
 		/// <param name="item"></param>
 		/// <returns></returns>
 		public int InsertDefaultItemTag(Item item) {
-			SQLiteCommand cmd = new SQLiteCommand(_connection);
-			cmd.CommandText = "SELECT tagID From ExtTagMap WHERE ext LIKE '%," + item.Extension + ",%'";
-			cmd.Prepare();
-			SQLiteDataReader r = cmd.ExecuteReader();
-			if (r.Read()) {
-				string tagId = r[0].ToString();
-				return InsertItemTag(item, new Tag(tagId, false));
-			} else {
-				return InsertItemTag(item, new Tag("miscellaneous", true));
+			int lines = 0;
+			foreach (string t in TagHelper.ObtainTag(item, _bagPath)) {
+				lines += InsertItemTag(item, t);
 			}
+
+			return lines;
 		}
 
 		/// <summary>
@@ -284,6 +271,36 @@ namespace MjFSv2Lib.Database {
 			cmd.Parameters.AddWithValue("@ext", extension);
 			cmd.Parameters.AddWithValue("@tagId", tag.Id);
 			return cmd.ExecuteNonQuery();
+		}
+
+		public List<string> GetInnerTags(List<string> tags) {
+			int c = tags.Count;
+			List<string> itemList = new List<string>();
+			if (c > 0) {
+				//The following piece of code is a bit dramatic in that it creates an SQL query on-demand #YOTH16
+
+				// Build JOIN clauses
+				StringBuilder sbJoin = new StringBuilder();
+				for (int i = 0; i < c; i++) {
+					sbJoin.Append("INNER JOIN ItemTag it" + i + " ON it" + i + ".tagId = @t" + i + " AND it" + i + ".itemId = i.id ");
+				}
+
+				// SQL prepared statement
+				SQLiteCommand cmd = new SQLiteCommand(_connection);
+				cmd.CommandText = "SELECT DISTINCT `tagId` FROM ItemTag WHERE `itemId` IN (SELECT i.id FROM Item i " + sbJoin.ToString() + ")";
+				cmd.Prepare();
+				
+				// Fill all parameters with their corresponding values
+				for (int i = 0; i < c; i++) {
+					cmd.Parameters.AddWithValue("@t" + i, tags[i].ToLower());
+				}
+				SQLiteDataReader r = cmd.ExecuteReader();
+				
+				while (r.Read()) {
+					itemList.Add(r[0].ToString());
+				}
+			}		
+			return itemList;
 		}
 
 		/// <summary>
@@ -313,12 +330,20 @@ namespace MjFSv2Lib.Database {
 		/// <param name="tag"></param>
 		/// <returns></returns>
 		public int InsertItemTag(Item item, Tag tag) {
-			SQLiteCommand cmd = new SQLiteCommand(_connection);
-			cmd.CommandText = "INSERT INTO ItemTag(itemId, tagId) VALUES (@itemId, @tagId)";
-			cmd.Prepare();
-			cmd.Parameters.AddWithValue("@itemId", item.Id);
-			cmd.Parameters.AddWithValue("@tagId", tag.Id);
-			return cmd.ExecuteNonQuery();
+			return InsertItemTag(item, tag.Id);
+		}
+
+		public int InsertItemTag(Item item, string tag) {
+			if (tag != null) {
+				SQLiteCommand cmd = new SQLiteCommand(_connection);
+				cmd.CommandText = "INSERT INTO ItemTag(itemId, tagId) VALUES (@itemId, @tagId)";
+				cmd.Prepare();
+				cmd.Parameters.AddWithValue("@itemId", item.Id);
+				cmd.Parameters.AddWithValue("@tagId", tag.ToLower().Trim());
+				return cmd.ExecuteNonQuery();
+			} else {
+				return -1;
+			}
 		}
 
 		/// <summary>
@@ -330,8 +355,16 @@ namespace MjFSv2Lib.Database {
 			SQLiteCommand cmd = new SQLiteCommand(_connection);
 			cmd.CommandText = "INSERT INTO Tag(id, rootVisible) VALUES (@id, @rootVisible)";
 			cmd.Prepare();
-			cmd.Parameters.AddWithValue("@id", tag.Id);
-			cmd.Parameters.AddWithValue("@rootVisible", Convert.ToInt32(tag.RootVisible));
+			cmd.Parameters.AddWithValue("@id", tag.Id.ToLower().Trim());
+			cmd.Parameters.AddWithValue("@rootVisible", Convert.ToInt32(false));
+			return cmd.ExecuteNonQuery();
+		}
+
+		public int InsertTag(string tag) {
+			SQLiteCommand cmd = new SQLiteCommand(_connection);
+			cmd.CommandText = "INSERT INTO Tag(id, rootVisible) VALUES (@id, 0)";
+			cmd.Prepare();
+			cmd.Parameters.AddWithValue("@id", tag.ToLower().Trim());
 			return cmd.ExecuteNonQuery();
 		}
 
@@ -406,6 +439,7 @@ namespace MjFSv2Lib.Database {
 		/// <param name="bagPath"></param>
 		/// <returns></returns>
 		public int AddTables(string bagPath) {
+			this._bagPath = Path.GetPathRoot(_connection.FileName) + bagPath; // set the path to the bag for the first time.
 			SQLiteCommand cmd = new SQLiteCommand(_connection);
 			string databaseTables = Properties.Resources.database;
 			cmd.CommandText = databaseTables;

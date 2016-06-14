@@ -75,11 +75,11 @@ namespace MjFSv2Lib.Util {
 		/// </summary>
 		/// <param name="path"></param>
 		/// <returns></returns>
-		public static List<Tag> GetTagsFromPath(string path) {
-			List<Tag> tagList = new List<Tag>();
-			foreach (string piece in path.Split(new Char[] { '\\' })) {
-				if (piece.Trim() != "") {
-					tagList.Add(new Tag(piece.ToLower(), false));
+		public static HashSet<string> GetTagsFromPath(string path) {
+			HashSet<string> tagList = new HashSet<string>();
+			foreach (string directory in path.Split(new Char[] { '\\' })) {
+				if (directory.Trim() != "") {
+					tagList.Add(directory.ToLower());
 				}
 			}
 			return tagList;

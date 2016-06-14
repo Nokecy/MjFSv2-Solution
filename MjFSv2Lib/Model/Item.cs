@@ -3,7 +3,7 @@ using System.IO;
 
 namespace MjFSv2Lib.Model {
 	public class Item {
-		public string Id { get; set; }
+		public string Id { get; }
 		public string Name { get; set; }
 		public long Size { get; set; }
 		public string Extension { get; set; }
@@ -11,6 +11,7 @@ namespace MjFSv2Lib.Model {
 		public DateTime LastWriteTime { get; set; }
 		public DateTime CreationTime { get; set; }
 		public FileAttributes Attributes { get; set; }
+		public string OriginalPath { get; set; }
 
 		public Item(string id, string name, string extension, long size, DateTime lat, DateTime lwt, DateTime ct, FileAttributes attr) {
 			Id = id;
