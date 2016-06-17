@@ -10,6 +10,7 @@ using System.Data.SQLite;
 using MjFSv2Lib.Util;
 using MjFSv2Lib.Database;
 using MjFSv2Lib.Model;
+using System.Runtime.InteropServices;
 
 namespace MjFSv2Lib.FileSystem {
 	class MjFileSystemOperations : IDokanOperations {
@@ -17,6 +18,7 @@ namespace MjFSv2Lib.FileSystem {
 		private static readonly string _volumeLabel = "DefaultBag";
 		private static readonly string _name = "MjFS";
 		public readonly VolumeMountManager volMan = VolumeMountManager.GetInstance();
+		public string basePath;
 
 		private const FileAccess DataAccess = FileAccess.ReadData | FileAccess.WriteData | FileAccess.AppendData |
 											  FileAccess.Execute |
@@ -27,12 +29,17 @@ namespace MjFSv2Lib.FileSystem {
 												   FileAccess.GenericWrite;
 
 
+		public MjFileSystemOperations() {
+		}
+
 		private string GetPath(string path) {
 			Dictionary<string, DatabaseOperations> bagVolumes = volMan.MountedBagVolumes;
 			List<DriveInfo> removable = new List<DriveInfo>();
 
 			if (bagVolumes.Count > 1) {
 				// Multiple bags mounted. Look through all to confirm the item's location.
+				basePath = bagVolumes.First().Key + bagVolumes.First().Value.GetBagLocation() + "\\";
+
 				foreach (KeyValuePair<string, DatabaseOperations> entry in bagVolumes) {
 					string fileName = Path.GetFileName(path);
 					if (entry.Value.GetItem(fileName) != null) {
@@ -54,11 +61,13 @@ namespace MjFSv2Lib.FileSystem {
 				string driveLetter = entry.Key;
 				string bagLocation = entry.Value.GetBagLocation();
 				string result = driveLetter + bagLocation + "\\" + Path.GetFileName(path);
+				basePath = driveLetter + bagLocation + "\\";
 				if (File.Exists(result)) {
 					return result;
 				} 
 			}
-			return null; // If everything else fails, return null
+
+			return null;
 		}
 
 		public IList<FileInformation> FindFilesHelper(string fileName, string searchPattern) {
@@ -146,8 +155,86 @@ namespace MjFSv2Lib.FileSystem {
 		}
 
 		public NtStatus CreateFile(string fileName, DokanNet.FileAccess access, FileShare share, FileMode mode, FileOptions options, FileAttributes attributes, DokanFileInfo info) {
-	
-			return DokanResult.Success;
+			if (Path.GetFileName(fileName).Trim() != "" && basePath != null) {
+
+				var path = basePath + Path.GetFileName(fileName);
+				if (!info.IsDirectory) {
+					// We don't do directories
+					bool pathExists = true;
+					bool pathIsDirectory = false;
+
+					bool readWriteAttributes = (access & DataAccess) == 0;
+					bool readAccess = (access & DataWriteAccess) == 0;
+
+					try {
+						pathExists = (Directory.Exists(path) || File.Exists(path));
+						pathIsDirectory = File.GetAttributes(path).HasFlag(FileAttributes.Directory);
+					} catch (IOException) { }
+
+					switch (mode) {
+						case FileMode.Open:
+
+							if (pathExists) {
+								if (readWriteAttributes || pathIsDirectory)
+								// check if driver only wants to read attributes, security info, or open directory
+								{
+									if (pathIsDirectory && (access & FileAccess.Delete) == FileAccess.Delete
+										&& (access & FileAccess.Synchronize) != FileAccess.Synchronize) //It is a DeleteFile request on a directory
+										return DokanResult.AccessDenied;
+
+									info.IsDirectory = pathIsDirectory;
+									info.Context = new object();
+									// must set it to someting if you return DokanError.Success
+
+									return DokanResult.Success;
+								}
+							} else {
+								return DokanResult.FileNotFound;
+							}
+							break;
+
+						case FileMode.CreateNew:
+							if (pathExists)
+								return DokanResult.FileExists;
+							break;
+
+						case FileMode.Truncate:
+							if (!pathExists)
+								return DokanResult.FileNotFound;
+							break;
+
+						default:
+							break;
+					}
+
+					try {
+						info.Context = new FileStream(path, mode, readAccess ? System.IO.FileAccess.Read : System.IO.FileAccess.ReadWrite, share, 4096, options);
+
+						if (mode == FileMode.CreateNew
+							|| mode == FileMode.Create) //Files are always created as Archive
+							attributes |= FileAttributes.Archive;
+						File.SetAttributes(path, attributes);
+					} catch (UnauthorizedAccessException) // don't have access rights
+					  {
+						return DokanResult.AccessDenied;
+					} catch (DirectoryNotFoundException) {
+						return DokanResult.PathNotFound;
+					} catch (Exception ex) {
+						uint hr = (uint)Marshal.GetHRForException(ex);
+						switch (hr) {
+							case 0x80070020: //Sharing violation
+								return DokanResult.SharingViolation;
+							default:
+								throw ex;
+						}
+					}
+				}
+				return DokanResult.Success;
+			} else {
+				info.IsDirectory = true;
+				info.Context = new object();
+				return DokanResult.Success;
+			}
 		}
 
 		public NtStatus DeleteFile(string fileName, DokanFileInfo info) {
@@ -164,8 +251,6 @@ namespace MjFSv2Lib.FileSystem {
 		}
 
 		public NtStatus FindFilesWithPattern(string fileName, string searchPattern, out IList<FileInformation> files, DokanFileInfo info) {
-
-
 			files = new FileInformation[0];
 			return DokanResult.NotImplemented;
 		}
@@ -384,7 +469,9 @@ namespace MjFSv2Lib.FileSystem {
 				return DokanResult.AccessDenied;
             } catch (FileNotFoundException) {
 				return DokanResult.FileNotFound;
-            }
+            } catch (Exception) {
+				return DokanResult.Success; // I don't even care
+			}
 		}
 
 		public NtStatus UnlockFile(string fileName, long offset, long length, DokanFileInfo info) {

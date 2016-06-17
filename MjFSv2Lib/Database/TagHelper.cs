@@ -80,7 +80,13 @@ namespace MjFSv2Lib.Database {
 			string path = fileItem.OriginalPath;
 			string ext = fileItem.Extension;
 
+			List<String> applicableExt = new List<String>() { "jpg", "jpeg" };
+
 			if (File.Exists(path)) {
+				if (!applicableExt.Contains(ext.ToLower())) {
+					return tagList;
+				}
+
 				try {
 					Thread.Sleep(500); // This file was most likely copied over, just wait half a sec to aviod IOExceptions on the given file.
 					using (ExifReader reader = new ExifReader(path)) {
