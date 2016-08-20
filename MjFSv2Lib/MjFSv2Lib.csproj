@@ -83,7 +83,7 @@
   <ItemGroup>
     <Compile Include="Database\DatabaseOperations.cs" />
     <Compile Include="Database\TagHelper.cs" />
-    <Compile Include="FileSystem\MirrorFileSystemOperations.cs" />
+    <Compile Include="FileSystem\FileSystemHelper.cs" />
     <Compile Include="FileSystem\MjFileSystemOperations.cs" />
     <Compile Include="Manager\DatabaseManager.cs" />
     <Compile Include="Manager\SynchronizationManager.cs" />

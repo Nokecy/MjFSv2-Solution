@@ -15,6 +15,8 @@ namespace MjFSv2Lib.Manager {
 	public class VolumeMountManager {
 		private static VolumeMountManager instance = new VolumeMountManager();
 		public static readonly string CONFIG_FILE_NAME = "BagConf.sqlite";
+
+		private static readonly DokanOptions MNT_OPS = DokanOptions.FixedDrive | DokanOptions.DebugMode;
 		private static readonly MjFileSystemOperations fileSystem = new MjFileSystemOperations(); // The MjFS main volume
 
 		private bool _mainMounted = false; // Flag indicating the mount status of the main volume
@@ -22,6 +24,8 @@ namespace MjFSv2Lib.Manager {
 
 		private Dictionary<string, DatabaseOperations> _mountedBagVolumes = new Dictionary<string, DatabaseOperations>(); // A map containing all currently mounted bag volumes
 		private Dictionary<string, DatabaseOperations> _discoveredBagVolumes = new Dictionary<string, DatabaseOperations>(); // A map containing all discovered bag volumes 
+
+		private DateTime lastChange;
 
 		private VolumeMountManager() {
 			// Register eventhandler for changes to logical volumes
@@ -39,6 +43,16 @@ namespace MjFSv2Lib.Manager {
 		#region Event handlers
 
 		private void OnLogicalVolumesChanges(object sender, EventArrivedEventArgs e) {
+			if (lastChange != null) {
+				DateTime now = DateTime.Now;
+				if ((now - lastChange).TotalSeconds < 4) {
+					// Discard this 'change' if the last change was less than 5 seconds ago
+					return;
+				} else {
+					lastChange = now;
+				}
+			}
+
 			DebugLogger.Log("Logical volumes (un)mounted");
 			MountBagVolumes(); 
 		}
@@ -148,7 +162,7 @@ namespace MjFSv2Lib.Manager {
 				string driveLetter = Helper.GetFreeDriveLetters()[0].ToString() + ":\\";
 				Console.WriteLine("Mounting main volume to '" + driveLetter + "'");
 				fileSystem.Drive = driveLetter;
-				fileSystem.Mount(driveLetter, DokanOptions.DebugMode | DokanOptions.FixedDrive); // Blocking call
+				fileSystem.Mount(driveLetter, MNT_OPS); // Blocking call
 			} else {
 				throw new VolumeMountManagerException("Main volume can only be mounted once.");
 			}

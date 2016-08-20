@@ -18,7 +18,6 @@ namespace MjFSv2Lib.FileSystem {
 		private static readonly string _volumeLabel = "DefaultBag";
 		private static readonly string _name = "MjFS";
 		public readonly VolumeMountManager volMan = VolumeMountManager.GetInstance();
-		public string basePath;
 
 		private const FileAccess DataAccess = FileAccess.ReadData | FileAccess.WriteData | FileAccess.AppendData |
 											  FileAccess.Execute |
@@ -33,104 +32,9 @@ namespace MjFSv2Lib.FileSystem {
 		}
 
 		private string GetPath(string path) {
-			Dictionary<string, DatabaseOperations> bagVolumes = volMan.MountedBagVolumes;
-			List<DriveInfo> removable = new List<DriveInfo>();
-
-			if (bagVolumes.Count > 1) {
-				// Multiple bags mounted. Look through all to confirm the item's location.
-				basePath = bagVolumes.First().Key + bagVolumes.First().Value.GetBagLocation() + "\\";
-
-				foreach (KeyValuePair<string, DatabaseOperations> entry in bagVolumes) {
-					string fileName = Path.GetFileName(path);
-					if (entry.Value.GetItem(fileName) != null) {
-						string driveLetter = entry.Key;
-						string bagLocation = entry.Value.GetBagLocation();
-						string result = driveLetter + bagLocation + "\\" + fileName;
-						if (File.Exists(result)) {
-							return result;
-						}
-					} else {
-						continue;
-					}
-				}
-			} else if (bagVolumes.Count == 0) {
-				// There are no mounted bags
-			} else {
-				// There is a single bag mounted. Directly return the item's location.
-				KeyValuePair<string, DatabaseOperations> entry =  bagVolumes.First();
-				string driveLetter = entry.Key;
-				string bagLocation = entry.Value.GetBagLocation();
-				string result = driveLetter + bagLocation + "\\" + Path.GetFileName(path);
-				basePath = driveLetter + bagLocation + "\\";
-				if (File.Exists(result)) {
-					return result;
-				} 
-			}
-
-			return null;
+			// This is, as of now, handled by the helper class
+			return FileSystemHelper.ResolvePath(path);
 		}
-
-		public IList<FileInformation> FindFilesHelper(string fileName, string searchPattern) {
-			//DebugLogger.Log("Find files for '" + fileName + "' with pattern '" + searchPattern + "'");
-			List<FileInformation> result = new List<FileInformation>();
-
-			
-			List<string> dupTags = new List<string>();
-
-			HashSet<string> tags = Helper.GetTagsFromPath(fileName);
-			List<Item> items = new List<Item>();
-
-			List<DriveInfo> removable = new List<DriveInfo>();
-
-			foreach(KeyValuePair<string, DatabaseOperations> entry in volMan.MountedBagVolumes) {
-				try {
-					if (fileName == "\\") {
-						foreach (Tag tag in entry.Value.GetRootTags()) {
-							if (!dupTags.Contains(tag.Id)) {
-								dupTags.Add(tag.Id);
-								FileInformation finfo = new FileInformation();
-								finfo.FileName = Helper.StringToProper(tag.Id);
-								finfo.Attributes = System.IO.FileAttributes.Directory;
-								finfo.LastAccessTime = DateTime.Now;
-								finfo.LastWriteTime = DateTime.Now;
-								finfo.CreationTime = DateTime.Now;
-								result.Add(finfo);
-							}
-						}
-					} else {
-						// Remove all tags in the path from innerTags to prevent unnecesarry recursion
-						List<string> innerTags = entry.Value.GetInnerTags(tags.ToList()).Except(tags).ToList();
-
-						foreach (string tag in innerTags) {
-							FileInformation finfo = new FileInformation();
-							finfo.FileName = Helper.StringToProper(tag);
-							finfo.Attributes = System.IO.FileAttributes.Directory;
-							finfo.LastAccessTime = DateTime.Now;
-							finfo.LastWriteTime = DateTime.Now;
-							finfo.CreationTime = DateTime.Now;
-							result.Add(finfo);
-						}
-						items.AddRange(entry.Value.GetItemsByCompositeTag(tags.ToList<string>()));
-					}
-				} catch(SQLiteException ex) {
-					DebugLogger.Log(ex.StackTrace + "\n" + ex.Message);
-					removable.Add(new DriveInfo(entry.Key));
-				}
-			}
-
-			// Remove any entry that caused an exception
-			foreach(DriveInfo dinfo in removable) {
-				volMan.UnmountBagVolume(dinfo.ToString());
-			}
-
-			// Add any found files
-			foreach (Item it in items) {
-				result.Add(Helper.GetFileInformationFromItem(it));
-			}
-
-			return result;
-		}
-
 		
 		public void Cleanup(string fileName, DokanFileInfo info) {
 			if (info.Context != null && info.Context is FileStream) {
@@ -155,6 +59,11 @@ namespace MjFSv2Lib.FileSystem {
 		}
 
 		public NtStatus CreateFile(string fileName, DokanNet.FileAccess access, FileShare share, FileMode mode, FileOptions options, FileAttributes attributes, DokanFileInfo info) {
+			/*
+			WARNING: THIS BREAKS MJFS PATH RESOLUTION AND MAY CAUSE BSODS
+			
+			string basePath = FileSystemHelper.lastBasePath; // spoof it
+
 			if (Path.GetFileName(fileName).Trim() != "" && basePath != null) {
 
 				var path = basePath + Path.GetFileName(fileName);
@@ -234,7 +143,8 @@ namespace MjFSv2Lib.FileSystem {
 				info.IsDirectory = true;
 				info.Context = new object();
 				return DokanResult.Success;
-			}
+			}*/
+			return DokanResult.Success;
 		}
 
 		public NtStatus DeleteFile(string fileName, DokanFileInfo info) {
@@ -246,7 +156,7 @@ namespace MjFSv2Lib.FileSystem {
 		}
 
 		public NtStatus FindFiles(string fileName, out IList<FileInformation> files, DokanFileInfo info) {
-			files = FindFilesHelper(fileName, "");
+			files = FileSystemHelper.FindFiles(fileName);
 			return DokanResult.Success;
 		}
 
@@ -391,10 +301,7 @@ namespace MjFSv2Lib.FileSystem {
 						stream.Position = offset;
 						bytesRead = stream.Read(buffer, 0, buffer.Length);
 					}
-				}
-
-
-				
+				}	
 			} else // normal read
 			  {
 				var stream = info.Context as FileStream;

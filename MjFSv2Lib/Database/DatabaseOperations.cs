@@ -258,21 +258,6 @@ namespace MjFSv2Lib.Database {
 			return lines;
 		}
 
-		/// <summary>
-		/// Insert an extension to tag mapping
-		/// </summary>
-		/// <param name="extension"></param>
-		/// <param name="tag"></param>
-		/// <returns></returns>
-		public int InsertExtTagMap(string extension, Tag tag) {
-			SQLiteCommand cmd = new SQLiteCommand(_connection);
-			cmd.CommandText = "INSERT INTO `ExtTagMap`(`ext`,`tagId`) VALUES(@ext, @tagId);";
-			cmd.Prepare();
-			cmd.Parameters.AddWithValue("@ext", extension);
-			cmd.Parameters.AddWithValue("@tagId", tag.Id);
-			return cmd.ExecuteNonQuery();
-		}
-
 		public List<string> GetInnerTags(List<string> tags) {
 			int c = tags.Count;
 			List<string> itemList = new List<string>();
