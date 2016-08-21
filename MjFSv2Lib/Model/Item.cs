@@ -11,7 +11,7 @@ namespace MjFSv2Lib.Model {
 		public DateTime LastWriteTime { get; set; }
 		public DateTime CreationTime { get; set; }
 		public FileAttributes Attributes { get; set; }
-		public string OriginalPath { get; set; }
+		public string SourcePath { get; set; }
 
 		public Item(string id, string name, string extension, long size, DateTime lat, DateTime lwt, DateTime ct, FileAttributes attr) {
 			Id = id;

@@ -10,8 +10,8 @@ namespace MjFSv2Lib.Manager {
 	/// </summary>
 	class DatabaseManager {
 		private static readonly int SQLITE_VERSION = 3;
-		public static readonly int CURRENT_DB_VER = 4;
-		public static readonly List<int> SUPPORTED_DB_VER = new List<int>(){ 3, CURRENT_DB_VER };
+		public static readonly int CURRENT_DB_VER = 5;
+		public static readonly List<int> SUPPORTED_DB_VER = new List<int>(){ CURRENT_DB_VER };
 
 		private static DatabaseManager instance = new DatabaseManager();
 		private readonly Dictionary<DatabaseOperations, SQLiteConnection> _connections = new Dictionary<DatabaseOperations, SQLiteConnection>();

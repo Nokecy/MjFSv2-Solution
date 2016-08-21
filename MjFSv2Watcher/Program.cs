@@ -1,5 +1,6 @@
 ﻿using MjFSv2Lib.Database;
 using MjFSv2Lib.Manager;
+using MjFSv2Lib.Meta;
 using MjFSv2Lib.Model;
 using MjFSv2Lib.Util;
 using System;
@@ -169,13 +170,12 @@ namespace MjFSv2Watcher {
 			string drive = System.IO.Path.GetPathRoot(path);
 			try {
 				
-				DatabaseOperations op = vMan.CreateBagVolume(drive, path);
+				DatabaseOperations dbOp = vMan.CreateBagVolume(drive, path);
 				DirectoryInfo dInfo = new DirectoryInfo(path);
 
 				foreach (FileInfo fInfo in dInfo.GetFiles()) {
-					Item fileItem = Helper.GetItemFromFileInfo(fInfo);
-					op.InsertItem(fileItem);
-					op.InsertDefaultItemTag(fileItem);
+					Item fileItem = Helper.GetItemFromFileInfo(fInfo); 
+					MetaService.ProcessItem(fileItem, dbOp);
 				}
 
 				Console.WriteLine("Successfully created a bag volume on " + drive);

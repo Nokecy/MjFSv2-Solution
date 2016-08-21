@@ -1,4 +1,4 @@
--- MjFS Database version 4 --
+-- MjFS Database version 5 --
 PRAGMA auto_vacuum = "1";
 
 CREATE TABLE "Config" (
@@ -8,7 +8,7 @@ CREATE TABLE "Config" (
 );
 
 CREATE TABLE "Item" (
-	`id`	TEXT NOT NULL,
+	`itemId`	TEXT NOT NULL,
 	`name`	TEXT NOT NULL,
 	`ext`	TEXT NOT NULL,
 	`size`	TEXT NOT NULL,
@@ -16,8 +16,30 @@ CREATE TABLE "Item" (
 	`lat`	TEXT NOT NULL,
 	`lwt`	TEXT NOT NULL,
 	`ct`	TEXT NOT NULL,
-	PRIMARY KEY(id)
+	`year`	TEXT NOT NULL,
+	PRIMARY KEY(itemId)
 );
+
+-- TODO: Externalize meta schemas --
+CREATE TABLE "PictureMeta" (
+	`itemId`	TEXT NOT NULL,
+	`model`		TEXT,
+	`iso`		TEXT,
+	`f-stop`	TEXT,
+	`year`		TEXT,
+	`artist`	TEXT,
+	PRIMARY KEY(itemId)
+);
+
+CREATE TABLE "MusicMeta" (
+	`itemId`	TEXT NOT NULL,
+	`artist`	TEXT,
+	`album`		TEXT,
+	`title`		TEXT,
+	`year`		TEXT,
+	PRIMARY KEY(itemId)
+);
+-- End of meta schemas --
 
 CREATE TABLE `ItemTag` (
 	`itemId` 	TEXT NOT NULL,

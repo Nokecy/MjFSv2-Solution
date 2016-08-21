@@ -13,23 +13,14 @@ using MjFSv2Lib.Model;
 using System.Runtime.InteropServices;
 
 namespace MjFSv2Lib.FileSystem {
-	class MjFileSystemOperations : IDokanOperations {
+	/// <summary>
+	/// MjFS implementation for Dokan
+	/// </summary>
+	class FileSystemOperations : IDokanOperations {
 		public string Drive { get; set; }
 		private static readonly string _volumeLabel = "DefaultBag";
 		private static readonly string _name = "MjFS";
 		public readonly VolumeMountManager volMan = VolumeMountManager.GetInstance();
-
-		private const FileAccess DataAccess = FileAccess.ReadData | FileAccess.WriteData | FileAccess.AppendData |
-											  FileAccess.Execute |
-											  FileAccess.GenericExecute | FileAccess.GenericWrite | FileAccess.GenericRead;
-
-		private const FileAccess DataWriteAccess = FileAccess.WriteData | FileAccess.AppendData |
-												   FileAccess.Delete |
-												   FileAccess.GenericWrite;
-
-
-		public MjFileSystemOperations() {
-		}
 
 		private string GetPath(string path) {
 			// This is, as of now, handled by the helper class

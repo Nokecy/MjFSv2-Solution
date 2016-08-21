@@ -1,4 +1,5 @@
 ﻿using MjFSv2Lib.Database;
+using MjFSv2Lib.Meta;
 using MjFSv2Lib.Model;
 using MjFSv2Lib.Util;
 using System.Collections.Generic;
@@ -56,12 +57,17 @@ namespace MjFSv2Lib.Manager {
 					FileInfo fInfo = new FileInfo(e.FullPath);
 					DriveInfo dInfo = new DriveInfo(fInfo.Directory.Root.Name);
 					DebugLogger.Log("Detected new file '" + fInfo.Name + "'");
-					DatabaseOperations tempOp = VolumeMountManager.GetInstance().DiscoveredBagVolumes[dInfo.ToString()];
+					DatabaseOperations dbOp = VolumeMountManager.GetInstance().DiscoveredBagVolumes[dInfo.ToString()];
 					Item fileItem = Helper.GetItemFromFileInfo(fInfo);
 					if (fileItem != null) {
 						try {
-							tempOp.InsertItem(fileItem);
-							tempOp.InsertDefaultItemTag(fileItem);
+							// Old tag processor
+							//dbOp.InsertItem(fileItem);
+							//dbOp.InsertDefaultItemTag(fileItem);
+
+							// New meta service 
+							MetaService.ProcessItem(fileItem, dbOp);
+							
 						} catch (SQLiteException ex) {
 							DebugLogger.Log("Database reports: \n" + ex.Message);
 						}
@@ -92,15 +98,20 @@ namespace MjFSv2Lib.Manager {
 					FileInfo oldfInfo = new FileInfo(e.OldFullPath);
 					DriveInfo dInfo = new DriveInfo(fInfo.Directory.Root.Name);
 					DebugLogger.Log("Renamed file '" + oldfInfo.Name + "' to '" + fInfo.Name + "'");
-					DatabaseOperations tempOp = VolumeMountManager.GetInstance().DiscoveredBagVolumes[dInfo.ToString()];
+					DatabaseOperations dbOp = VolumeMountManager.GetInstance().DiscoveredBagVolumes[dInfo.ToString()];
 					Item fileItem = Helper.GetItemFromFileInfo(fInfo);
 					Item oldFileItem = Helper.GetItemFromId(oldfInfo.Name);
 
 					if (fileItem != null && oldfInfo != null) {
 						try {
-							tempOp.DeleteItem(oldFileItem);
-							tempOp.InsertItem(fileItem);
-							tempOp.InsertDefaultItemTag(fileItem);
+							dbOp.DeleteItem(oldFileItem);
+
+							// Old tag processor
+							//dbOp.InsertItem(fileItem);
+							//dbOp.InsertDefaultItemTag(fileItem);
+
+							// New meta service 
+							MetaService.ProcessItem(fileItem, dbOp);
 						} catch (SQLiteException ex) {
 							DebugLogger.Log("Database reports: \n" + ex.Message);
 						}
@@ -156,21 +167,25 @@ namespace MjFSv2Lib.Manager {
 			if (vMan.DiscoveredBagVolumes.Count == 0) {
 				throw new SynchronizationManagerException("Unable to start synchronization: there are no registered bag volumes.");
 			}
-			DatabaseOperations op;
-			if (!VolumeMountManager.GetInstance().DiscoveredBagVolumes.TryGetValue(drive, out op)) {
+			DatabaseOperations dbOp;
+			if (!VolumeMountManager.GetInstance().DiscoveredBagVolumes.TryGetValue(drive, out dbOp)) {
 				throw new SynchronizationManagerException("Unable to start synchronization: bag volume is not registered.");
 			}
 			StopSynchronization(drive); // Stop synching
-			op.TruncateTable("Item");
-			op.TruncateTable("ItemTag");
+			dbOp.TruncateTable("Item");
+			dbOp.TruncateTable("ItemTag");
 
-			string path = drive + op.GetBagLocation() + "\\";
+			string path = drive + dbOp.GetBagLocation() + "\\";
 			DirectoryInfo dInfo = new DirectoryInfo(path);
 			if (dInfo.Exists) {
 				foreach (FileInfo fInfo in dInfo.GetFiles()) {
 					Item fileItem = Helper.GetItemFromFileInfo(fInfo);
-					op.InsertItem(fileItem);
-					op.InsertDefaultItemTag(fileItem);
+					// Old tag processor
+					//dbOp.InsertItem(fileItem);
+					//dbOp.InsertDefaultItemTag(fileItem);
+
+					// New meta service 
+					MetaService.ProcessItem(fileItem, dbOp);
 				}
 			} else {
 				throw new SynchronizationManagerException("Bag location does not exist on volume " + drive);

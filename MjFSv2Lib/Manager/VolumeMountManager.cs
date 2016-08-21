@@ -14,10 +14,10 @@ namespace MjFSv2Lib.Manager {
 	/// </summary>
 	public class VolumeMountManager {
 		private static VolumeMountManager instance = new VolumeMountManager();
-		public static readonly string CONFIG_FILE_NAME = "BagConf.sqlite";
 
+		public static readonly string CONFIG_FILE_NAME = "BagConf.sqlite";
 		private static readonly DokanOptions MNT_OPS = DokanOptions.FixedDrive | DokanOptions.DebugMode;
-		private static readonly MjFileSystemOperations fileSystem = new MjFileSystemOperations(); // The MjFS main volume
+		private static readonly FileSystemOperations fsOp = new FileSystemOperations(); // The MjFS Dokany implementation aka main volume
 
 		private bool _mainMounted = false; // Flag indicating the mount status of the main volume
 		private DatabaseManager dbMan = DatabaseManager.GetInstance(); // The configuration database manager
@@ -25,8 +25,8 @@ namespace MjFSv2Lib.Manager {
 		private Dictionary<string, DatabaseOperations> _mountedBagVolumes = new Dictionary<string, DatabaseOperations>(); // A map containing all currently mounted bag volumes
 		private Dictionary<string, DatabaseOperations> _discoveredBagVolumes = new Dictionary<string, DatabaseOperations>(); // A map containing all discovered bag volumes 
 
-		private DateTime lastChange;
-
+		private DateTime lastChange; // Indicates last volume mount event to reduce the amount of bag volume discoveries
+		
 		private VolumeMountManager() {
 			// Register eventhandler for changes to logical volumes
 			var watcher = new ManagementEventWatcher();
@@ -161,19 +161,19 @@ namespace MjFSv2Lib.Manager {
 				_mainMounted = true;
 				string driveLetter = Helper.GetFreeDriveLetters()[0].ToString() + ":\\";
 				Console.WriteLine("Mounting main volume to '" + driveLetter + "'");
-				fileSystem.Drive = driveLetter;
-				fileSystem.Mount(driveLetter, MNT_OPS); // Blocking call
+				fsOp.Drive = driveLetter;
+				fsOp.Mount(driveLetter, MNT_OPS); // Blocking call to Dokany
 			} else {
 				throw new VolumeMountManagerException("Main volume can only be mounted once.");
 			}
 		}
 
 		/// <summary>
-		/// Unmount the main volume
+		/// Unmount the main volume - not used in current implementation
 		/// </summary>
 		public void UnmountMainVolume() {
 			if(_mainMounted) {
-				char driveLetter = fileSystem.Drive.ToCharArray()[0];
+				char driveLetter = fsOp.Drive.ToCharArray()[0];
 				Console.WriteLine("Unmounting main volume from '" + driveLetter + "'");
 				Dokan.Unmount(driveLetter);
 			} else {

@@ -68,7 +68,7 @@ namespace MjFSv2Lib.FileSystem {
 			List<string> dupTags = new List<string>();
 			HashSet<string> tags = Helper.GetTagsFromPath(directoryPath);
 			List<Item> items = new List<Item>();
-			List<DriveInfo> deprecateNext = new List<DriveInfo>();
+			List<DriveInfo> deprecateNextList = new List<DriveInfo>();
 
 			foreach (KeyValuePair<string, DatabaseOperations> entry in volMan.MountedBagVolumes) {
 				try {
@@ -104,12 +104,12 @@ namespace MjFSv2Lib.FileSystem {
 				} catch (SQLiteException ex) {
 					// Display any exceptions, but continue working. We will remove this drive later.
 					DebugLogger.Log(ex.StackTrace + "\n" + ex.Message);
-					deprecateNext.Add(new DriveInfo(entry.Key));
+					deprecateNextList.Add(new DriveInfo(entry.Key));
 				}
 			}
 
 			// Unmount any entry that caused an exception
-			foreach (DriveInfo dinfo in deprecateNext) {
+			foreach (DriveInfo dinfo in deprecateNextList) {
 				volMan.UnmountBagVolume(dinfo.ToString());
 			}
 
