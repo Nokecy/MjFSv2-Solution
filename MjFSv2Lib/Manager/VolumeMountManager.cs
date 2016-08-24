@@ -190,7 +190,7 @@ namespace MjFSv2Lib.Manager {
 			if (!_discoveredBagVolumes.Keys.Contains(drive.ToUpper())) {
 				DatabaseOperations op = dbMan.OpenConnection(drive + CONFIG_FILE_NAME);				
 				op.AddTables(bagLocation.Substring(3));
-				op.UpdateHash();
+				//op.UpdateHash();
 				_discoveredBagVolumes.Add(drive.ToUpper(), op);
 				return op;
 			} else {

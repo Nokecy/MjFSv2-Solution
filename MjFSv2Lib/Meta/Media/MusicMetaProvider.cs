@@ -9,7 +9,7 @@ using MjFSv2Lib.Model;
 namespace MjFSv2Lib.Meta.Media {
 	class MusicMetaProvider : IMetaProvider {
 		private HashSet<string> _extensions = new HashSet<string>() { "mp3", "wav", "aac", "midi", "flac", "wma" };
-		private static readonly string TABLE_NAME = "MusicMeta";
+		private static readonly string TABLE_NAME = "MusicExtMeta";
 
 		public HashSet<string> Extensions {
 			get {
@@ -37,9 +37,6 @@ namespace MjFSv2Lib.Meta.Media {
 			res.AddColumn("artist", artist[0]);
 			res.AddColumn("album", album);
 			res.AddColumn("title", title);
-			if (year != 0) {
-				res.AddColumn("year", year.ToString());
-			}
 
 			return res;
 		}

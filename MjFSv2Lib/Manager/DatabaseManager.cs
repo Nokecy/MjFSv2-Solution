@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Data.SQLite;
 using MjFSv2Lib.Database;
+using MjFSv2Lib.Domain;
 
 namespace MjFSv2Lib.Manager {
 	/// <summary>
@@ -10,7 +11,7 @@ namespace MjFSv2Lib.Manager {
 	/// </summary>
 	class DatabaseManager {
 		private static readonly int SQLITE_VERSION = 3;
-		public static readonly int CURRENT_DB_VER = 5;
+		public static readonly int CURRENT_DB_VER = 6;
 		public static readonly List<int> SUPPORTED_DB_VER = new List<int>(){ CURRENT_DB_VER };
 
 		private static DatabaseManager instance = new DatabaseManager();
@@ -28,31 +29,20 @@ namespace MjFSv2Lib.Manager {
 		/// <param name="filePath"></param>
 		/// <returns></returns>
 		public DatabaseOperations OpenConnection(string filePath) {
-			bool skipVerCheck = false;
-
-			if (!File.Exists(filePath)) {
+			/*if (!File.Exists(filePath)) {
 				SQLiteConnection.CreateFile(filePath);
-				skipVerCheck = true;
-			}
-
+			}*/
+			
 			string connectionString = "Data Source=" + filePath + ";Version=" + SQLITE_VERSION;
 			SQLiteConnection con = new SQLiteConnection(connectionString);
 			con.Open();
-			DatabaseOperations op = new DatabaseOperations(con);
- 
-			if (!skipVerCheck) {
-				try {
-					int loadedVer = op.GetVersion();
+					
 
-					if (!SUPPORTED_DB_VER.Contains(loadedVer)) {
-						throw new NotSupportedException("Database version " + loadedVer + " is not supported.");
-					}
-				} catch (SQLiteException) {
-					throw new NotSupportedException("Database format not supported");
-				}
-			}
-	
-			_connections.Add(op, con);
+			EntityContext entities = new EntityContext(con);
+
+			DatabaseOperations op = new DatabaseOperations(entities);
+ 	
+			_connections.Add(op, (SQLiteConnection)entities.Database.Connection);
 			return op;
 		}
 		

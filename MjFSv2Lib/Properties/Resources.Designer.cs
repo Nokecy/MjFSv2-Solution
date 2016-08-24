@@ -61,34 +61,29 @@ namespace MjFSv2Lib.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to -- MjFS Database version 3 --
-        ///PRAGMA auto_vacuum = &quot;1&quot;;
+        ///   Looks up a localized string similar to -- MjFS Database version 6 --
+        ///PRAGMA auto_vacuum = 1;
+        ///PRAGMA foreign_keys = 1;
         ///
+        ///-- Basic configuration data --
         ///CREATE TABLE &quot;Config&quot; (
-        ///	`location`	TEXT NOT NULL,
-        ///	`version`	INTEGER NOT NULL,
-        ///	`hash`		TEXT
+        ///	location	TEXT NOT NULL,
+        ///	version	INTEGER NOT NULL,
+        ///	hash		TEXT
         ///);
         ///
-        ///CREATE TABLE `ExtTagMap` (
-        ///	`ext`	TEXT NOT NULL UNIQUE,
-        ///	`tagId`	TEXT NOT NULL,
-        ///	PRIMARY KEY(ext,tagId)
+        ///-- Registered meta tables --
+        ///CREATE TABLE MetaTables (
+        ///	tableName		TEXT PRIMARY KEY,
+        ///	friendlyName	TEXT UNIQUE,
+        ///	rootVisible		INTEGER NOT NULL,
+        ///	extends			TEXT,
+        ///	FOREIGN KEY (extends) REFERENCES MetaTables(tableName)
         ///);
         ///
-        ///CREATE TABLE &quot;Item&quot; (
-        ///	`id`	TEXT NOT NULL,
-        ///	`name`	TEXT NOT NULL,
-        ///	`ext`	TEXT NOT NULL,
-        ///	`size`	TEXT NOT NULL,
-        ///	`attr`	TEXT NOT NULL,
-        ///	`lat`	TEXT NOT NULL,
-        ///	`lwt`	TEXT NOT NULL,
-        ///	`ct`	TEXT NOT NULL,
-        ///	PRIMARY KEY(id)
-        ///);
-        ///
-        ///CR [rest of string was truncated]&quot;;.
+        ///-- Meta aliases --
+        ///CREATE TABLE MetaAlias (
+        ///	alias		TEXT NOT NULL, [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string database {
             get {

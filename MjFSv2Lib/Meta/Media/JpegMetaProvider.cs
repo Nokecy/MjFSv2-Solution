@@ -12,7 +12,7 @@ using System.IO;
 namespace MjFSv2Lib.Meta.Media {
 	class JpegMetaProvider : IMetaProvider {
 		private HashSet<string> _extensions = new HashSet<string>() { "jpg", "jpeg" };
-		private static readonly string TABLE_NAME = "PictureMeta";
+		private static readonly string TABLE_NAME = "PictureJpegMeta";
 
 		public HashSet<string> Extensions {
 			get {
@@ -51,10 +51,6 @@ namespace MjFSv2Lib.Meta.Media {
 
 					if (reader.GetTagValue<string>(ExifTags.Model, out outputStr)) {
 						res.AddColumn("model", outputStr);
-					}
-					
-					if (reader.GetTagValue<DateTime>(ExifTags.DateTimeDigitized, out outputDate)) {
-						res.AddColumn("year", outputDate.Year.ToString());
 					}
 				}
 			} catch (ExifLibException ex) {

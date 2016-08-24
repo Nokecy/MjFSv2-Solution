@@ -9,7 +9,7 @@ using MjFSv2Lib.Model;
 namespace MjFSv2Lib.Meta.Default {
 	class DefaultMetaProvider : IMetaProvider {
 		private HashSet<string> _extensions = new HashSet<string>() { "" };
-		private static readonly string TABLE_NAME = "Item";
+		private static readonly string TABLE_NAME = "ItemMeta";
 
 		public HashSet<string> Extensions {
 			get {
@@ -32,7 +32,6 @@ namespace MjFSv2Lib.Meta.Default {
 			row.AddColumn("lat", fileItem.LastAccesTime.ToString());
 			row.AddColumn("lwt", fileItem.LastWriteTime.ToString());
 			row.AddColumn("ct", fileItem.CreationTime.ToString());
-			row.AddColumn("year", fileItem.CreationTime.Year.ToString());
 			return row;
 		}
 	}

@@ -19,8 +19,8 @@ namespace MjFSv2Lib.Meta {
 		public static object VolumeManager { get; private set; }
 
 		static MetaService() {
-			DebugLogger.Log("MetaService static ctor invoked!");
 			RegisterDefaultProvider(new DefaultMetaProvider());
+			RegisterProvider(new DefaultPictureMetaProvider());
 			RegisterProvider(new JpegMetaProvider());
 			RegisterProvider(new MusicMetaProvider());
 		}
@@ -49,17 +49,15 @@ namespace MjFSv2Lib.Meta {
 			List<IMetaProvider> provOut;
 			_metaProviderMap.TryGetValue(fileItem.Extension.ToLower(), out provOut);
 
-			// Create a copy of the list, since provOut is byRef.
-			List<IMetaProvider> providers;
-				
-			if (provOut != null) {
-				providers = new List<IMetaProvider>(provOut);
-			} else {
-				providers = new List<IMetaProvider>();
-			}
-				
+			List<IMetaProvider> providers = new List<IMetaProvider>();
+
 			// Add the default provider
 			providers.Add(_defaultMetaProvider);
+
+			if (provOut != null) {
+				providers.AddRange(provOut);
+			} 				
+			
 			// Iterate over all providers and let them do their thing
 			foreach (IMetaProvider provider in providers) {
 				TableRow row = provider.ProcessItem(fileItem);
