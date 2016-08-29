@@ -28,11 +28,11 @@ namespace MjFSv2Lib.Meta.Default {
 			row.AddColumn("name", fileItem.Name);
 			row.AddColumn("ext", fileItem.Extension.ToLower());
 			row.AddColumn("size", fileItem.Size.ToString());
-			row.AddColumn("attr", fileItem.Attributes.ToString());
+			row.AddColumn("attr", ((int)fileItem.Attributes).ToString());
 			row.AddColumn("lat", fileItem.LastAccesTime.ToString());
 			row.AddColumn("lwt", fileItem.LastWriteTime.ToString());
 			row.AddColumn("ct", fileItem.CreationTime.ToString());
 			return row;
 		}
 	}
-}
+} 

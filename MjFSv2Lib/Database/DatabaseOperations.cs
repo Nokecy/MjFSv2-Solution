@@ -4,6 +4,7 @@ using MjFSv2Lib.Model;
 using MjFSv2Lib.Util;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Data.Linq;
 using System.Data.SqlClient;
 using System.Data.SQLite;
@@ -30,13 +31,14 @@ namespace MjFSv2Lib.Database {
 			if (_context.Database.Exists()) {
 				if (_context.Database.CompatibleWithModel(false)) {
 					try {
-						_bagPath = Path.GetPathRoot(_connection.FileName) + this.GetBagLocation() + "\\";
-						DebugLogger.Log("Initialized DatabaseOperations for '" + _bagPath + "'");
-					} catch (SQLiteException) {
-						// IDK
+						_bagPath = this.GetBagLocation() + "\\";
+						MjDebug.Log("Initialized DatabaseOperations for '" + _bagPath + "'");
+					} catch (Exception ex) {
+						// This happens when initializing an empty database
+						//MjDebug.Halt("Error during database initialization", ex);
 					}
 				} else {
-					DebugLogger.Log("Connected database is not compatible with current model!");
+					MjDebug.Log("Connected database is not compatible with current model!");
 				}
 			}		
         }
@@ -50,6 +52,7 @@ namespace MjFSv2Lib.Database {
 			return r.Read();
 		}
 
+		// Hack
 		public int InsertTableRow(TableRow row) {
 			if (row != null) {
 				StringBuilder sb;
@@ -88,84 +91,49 @@ namespace MjFSv2Lib.Database {
 			}	
 		}
 
-		/// <summary>
-		/// Remove a tag from the given item
-		/// </summary>
-		/// <param name="item"></param>
-		/// <param name="tag"></param>
-		/// <returns></returns>
-		[Obsolete]
-		public int DeleteItemTag(Item item, Tag tag) {
-			SQLiteCommand cmd = new SQLiteCommand(_connection);
-			cmd.CommandText = "DELETE FROM ItemTag WHERE tagId = @tagId AND itemId = @itemId";
-			cmd.Prepare();
-			cmd.Parameters.AddWithValue("@tagId", tag.Id);
-			cmd.Parameters.AddWithValue("@Itemid", item.Id);
-			return cmd.ExecuteNonQuery();
-		}
-
-		/// <summary>
-		/// Delete the item, also removing any tag associations
-		/// </summary>
-		/// <param name="item"></param>
-		/// <returns></returns>
-		[Obsolete]
-		public int DeleteItem(Item item) {
-			return DeleteItemOnly(item) + DeleteItemTags(item);
-		}
-
-
-		/// <summary>
-		/// Delete the item without removing tag associatations
-		/// </summary>
-		/// <param name="item"></param>
-		/// <returns></returns>
-		[Obsolete]
-		public int DeleteItemOnly(Item item) {
-			SQLiteCommand cmd = new SQLiteCommand(_connection);
-			cmd.CommandText = "DELETE FROM Item WHERE itemId = @id";
-			cmd.Prepare();
-			cmd.Parameters.AddWithValue("@id", item.Id);
-			return cmd.ExecuteNonQuery();
-		}
-
-		/// <summary>
-		/// Delete all tags from the given item
-		/// </summary>
-		/// <param name="item"></param>
-		/// <returns></returns>
-		[Obsolete]
-		public int DeleteItemTags(Item item) {
-			SQLiteCommand cmd = new SQLiteCommand(_connection);
-			cmd.CommandText = "DELETE FROM ItemTag WHERE  itemId = @id";
-			cmd.Prepare();
-			cmd.Parameters.AddWithValue("@id", item.Id);
-			return cmd.ExecuteNonQuery();
-		}
-
-		public string GetBagLocation() {
-			SQLiteCommand cmd = new SQLiteCommand(_connection);
-			cmd.CommandText = "SELECT location FROM Config";
-			cmd.Prepare();
-			SQLiteDataReader r = cmd.ExecuteReader();
-			if (r.Read()) {
-				return r[0].ToString();
-			} else {
-				return null;
-			}
+		private string GetBagLocation() {
+			return _context.Configs.First<Config>().location;
 		}
 
 		public int GetVersion() {
-			SQLiteCommand cmd = new SQLiteCommand(_connection);
-			cmd.CommandText = "SELECT version FROM Config";
-			cmd.Prepare();
-			SQLiteDataReader r = cmd.ExecuteReader();
-			if (r.Read()) {
-				return Convert.ToInt32(r[0]);
-			} else {
-				return 0;
-			}
+			var currentConfig = _context.Configs.First<Config>();
+			return Convert.ToInt32(currentConfig.version);
 		}
+
+		/// <summary>
+		/// Retrieve the list of meta tables that are root visible.
+		/// </summary>
+		/// <returns></returns>
+		public List<MetaTable> GetRootTables() {
+			var rootTables = from metaTable in _context.MetaTables
+						   where metaTable.rootVisible == 1
+						   select metaTable;
+
+			return rootTables.ToList<MetaTable>();
+		}
+
+		/// <summary>
+		/// Retrieve the list of all items in the table with this friendly name
+		/// </summary>
+		/// <param name="friendlyTableName"></param>
+		/// <returns></returns>
+		public List<ItemMeta> GetItemsByTableFriendlyName(string friendlyTableName) {
+			var tables = from metaTable in _context.MetaTables
+						where metaTable.friendlyName.ToLower() == friendlyTableName
+						select metaTable;
+
+			if (tables.Count<MetaTable>() == 0) {
+				return new List<ItemMeta>();
+			}
+			MetaTable table = tables.First<MetaTable>(); // Friendlynames are unique
+			return GetItemsByTableName(table.tableName);
+		}
+
+		public List<ItemMeta> GetItemsByTableName(string tableName) {
+			var items = _context.Database.SqlQuery<ItemMeta>("SELECT DISTINCT * FROM ItemMeta WHERE itemId IN " + tableName);
+			return items.ToList<ItemMeta>();
+		}
+
 
 		[Obsolete]
 		public Item GetItem(string id) {
@@ -222,25 +190,6 @@ namespace MjFSv2Lib.Database {
 				itemList.Add(it);
 			}
 			return itemList;
-		}
-
-		/// <summary>
-		/// Return all tags that have their root visibility set to true
-		/// </summary>
-		/// <returns></returns>
-		[Obsolete]
-		public List<Tag> GetRootTags() {
-			SQLiteCommand cmd = new SQLiteCommand(_connection);
-			cmd.CommandText = "SELECT id FROM Tag WHERE rootVisible = 1";
-			cmd.Prepare();
-			SQLiteDataReader r = cmd.ExecuteReader();
-
-			List<Tag> tagList = new List<Tag>();
-			while (r.Read()) {
-				Tag t = new Tag(r[0].ToString().ToLower(), true);
-				tagList.Add(t);
-			}
-			return tagList;
 		}
 
 		/// <summary>
@@ -356,12 +305,12 @@ namespace MjFSv2Lib.Database {
 
 
 		/// <summary>
-		/// Populate the database with tables by running the SQL script.
+		/// Populate the database with tables by running the SQL creation script. Additionally, some configuration info will be injected in the database.
 		/// </summary>
-		/// <param name="bagLocation">The location of the bag, to be included in the configuration.</param>
-		public void AddTables(string bagLocation) {
-			_bagPath = Path.GetPathRoot(_connection.FileName) + bagLocation;
-			_context.Database.ExecuteSqlCommand(Properties.Resources.database, new SQLiteParameter("@defaultBag", _bagPath));			
+		/// <param name="bagLocation">The location of the bag relative to the drive. E.g. folder\bag\. Do not include the drive letter here.</param>
+		public void CreateTables(string bagLocation) {
+			_bagPath = Path.GetPathRoot(_connection.FileName) + bagLocation; // Build current bag location from drive and bag path
+			_context.Database.ExecuteSqlCommand(Properties.Resources.database, new SQLiteParameter("@defaultBag", _bagPath)); // Insert bagPath into table creation script and execute			
 		}
 
 		public int TruncateTable(string tableName) {

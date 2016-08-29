@@ -44,10 +44,10 @@ namespace MjFSv2Lib.Manager {
 				DatabaseOperations op;
 				if (!vMan.DiscoveredBagVolumes.TryGetValue(drive, out op)) {
 					throw new SynchronizationManagerException("Unable to start synchronization: bag volume is not registered.");
-				} 
-				
+				}
 
-				fsw.Path = drive + op.GetBagLocation() + "\\";
+
+				fsw.Path = op.BagLocation;
 				fsw.EnableRaisingEvents = true;
 				_watchedDrives.Add(drive, fsw);
 
@@ -56,7 +56,7 @@ namespace MjFSv2Lib.Manager {
 				fsw.Created += (s, e) => {
 					FileInfo fInfo = new FileInfo(e.FullPath);
 					DriveInfo dInfo = new DriveInfo(fInfo.Directory.Root.Name);
-					DebugLogger.Log("Detected new file '" + fInfo.Name + "'");
+					MjDebug.Log("Detected new file '" + fInfo.Name + "'");
 					DatabaseOperations dbOp = VolumeMountManager.GetInstance().DiscoveredBagVolumes[dInfo.ToString()];
 					Item fileItem = Helper.GetItemFromFileInfo(fInfo);
 					if (fileItem != null) {
@@ -69,27 +69,27 @@ namespace MjFSv2Lib.Manager {
 							MetaService.ProcessItem(fileItem, dbOp);
 							
 						} catch (SQLiteException ex) {
-							DebugLogger.Log("Database reports: \n" + ex.Message);
+							MjDebug.Log("Database reports: \n" + ex.Message);
 						}
 					} else {
-						DebugLogger.Log("Fileitem is null");
+						MjDebug.Log("Fileitem is null");
 					}
 				};
 
 				fsw.Deleted += (s, e) => {
 					FileInfo fInfo = new FileInfo(e.FullPath);
 					DriveInfo dInfo = new DriveInfo(fInfo.Directory.Root.Name);
-					DebugLogger.Log("Removed file '" + fInfo.Name + "'");
+					MjDebug.Log("Removed file '" + fInfo.Name + "'");
 					DatabaseOperations tempOp = VolumeMountManager.GetInstance().DiscoveredBagVolumes[dInfo.ToString()];
 					Item fileItem = Helper.GetItemFromId(fInfo.Name);
 					if (fileItem != null) {
 						try {
-							tempOp.DeleteItem(fileItem);
+							//tempOp.DeleteItem(fileItem);
 						} catch (SQLiteException ex) {
-							DebugLogger.Log("Database reports: \n" + ex.Message);
+							MjDebug.Log("Database reports: \n" + ex.Message);
 						}
 					} else {
-						DebugLogger.Log("Fileitem is null");
+						MjDebug.Log("Fileitem is null");
 					}
 				};
 
@@ -97,14 +97,14 @@ namespace MjFSv2Lib.Manager {
 					FileInfo fInfo = new FileInfo(e.FullPath);
 					FileInfo oldfInfo = new FileInfo(e.OldFullPath);
 					DriveInfo dInfo = new DriveInfo(fInfo.Directory.Root.Name);
-					DebugLogger.Log("Renamed file '" + oldfInfo.Name + "' to '" + fInfo.Name + "'");
+					MjDebug.Log("Renamed file '" + oldfInfo.Name + "' to '" + fInfo.Name + "'");
 					DatabaseOperations dbOp = VolumeMountManager.GetInstance().DiscoveredBagVolumes[dInfo.ToString()];
 					Item fileItem = Helper.GetItemFromFileInfo(fInfo);
 					Item oldFileItem = Helper.GetItemFromId(oldfInfo.Name);
 
 					if (fileItem != null && oldfInfo != null) {
 						try {
-							dbOp.DeleteItem(oldFileItem);
+							//dbOp.DeleteItem(oldFileItem);
 
 							// Old tag processor
 							//dbOp.InsertItem(fileItem);
@@ -113,10 +113,10 @@ namespace MjFSv2Lib.Manager {
 							// New meta service 
 							MetaService.ProcessItem(fileItem, dbOp);
 						} catch (SQLiteException ex) {
-							DebugLogger.Log("Database reports: \n" + ex.Message);
+							MjDebug.Log("Database reports: \n" + ex.Message);
 						}
 					} else {
-						DebugLogger.Log("Fileitem is null");
+						MjDebug.Log("Fileitem is null");
 					}
 				};
 				#endregion
@@ -175,7 +175,7 @@ namespace MjFSv2Lib.Manager {
 			dbOp.TruncateTable("Item");
 			dbOp.TruncateTable("ItemTag");
 
-			string path = drive + dbOp.GetBagLocation() + "\\";
+			string path = drive + dbOp.BagLocation;
 			DirectoryInfo dInfo = new DirectoryInfo(path);
 			if (dInfo.Exists) {
 				foreach (FileInfo fInfo in dInfo.GetFiles()) {

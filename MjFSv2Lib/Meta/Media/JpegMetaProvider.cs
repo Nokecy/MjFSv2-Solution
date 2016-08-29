@@ -54,10 +54,10 @@ namespace MjFSv2Lib.Meta.Media {
 					}
 				}
 			} catch (ExifLibException ex) {
-				DebugLogger.Log(ex.Message);
+				MjDebug.Log(ex.Message);
 				return null;
 			} catch (IOException ex) {
-				DebugLogger.Log(ex.Message);
+				MjDebug.Log(ex.Message);
 				return null;
 			}
 

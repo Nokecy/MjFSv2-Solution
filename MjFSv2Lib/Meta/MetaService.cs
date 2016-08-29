@@ -69,7 +69,7 @@ namespace MjFSv2Lib.Meta {
 				try {
 					dbOp.InsertTableRow(row);
 				} catch (SQLiteException ex) {
-					DebugLogger.Log(ex.Message);
+					MjDebug.Log(ex.Message);
 				}
 			}			
 		}

@@ -1,5 +1,6 @@
 ﻿using DokanNet;
 using MjFSv2Lib.Database;
+using MjFSv2Lib.Domain;
 using MjFSv2Lib.Manager;
 using MjFSv2Lib.Model;
 using MjFSv2Lib.Util;
@@ -29,21 +30,22 @@ namespace MjFSv2Lib.FileSystem {
 				// There is a single bag mounted. Directly return the item's location.
 				KeyValuePair<string, DatabaseOperations> entry = bagVolumes.First();
 				string driveLetter = entry.Key;
-				string bagLocation = entry.Value.GetBagLocation();
-				string result = driveLetter + bagLocation + "\\" + Path.GetFileName(path);
-				lastBasePath = driveLetter + bagLocation + "\\";
+				string bagLocation = entry.Value.BagLocation;
+				string result = bagLocation + Path.GetFileName(path);
+				lastBasePath = bagLocation;
+				MjDebug.Log("Resolved " + path + " to " + result);
 				if (File.Exists(result)) {
 					return result;
 				}		
 			} else if (bagVolumes.Count > 1) {
 				// Multiple bags mounted. Look through all to confirm the item's location.
-				lastBasePath = bagVolumes.First().Key + bagVolumes.First().Value.GetBagLocation() + "\\";
+				lastBasePath = bagVolumes.First().Key + bagVolumes.First().Value.BagLocation;
 
 				foreach (KeyValuePair<string, DatabaseOperations> entry in bagVolumes) {
 					string fileName = Path.GetFileName(path);
 					if (entry.Value.GetItem(fileName) != null) {
 						string driveLetter = entry.Key;
-						string bagLocation = entry.Value.GetBagLocation();
+						string bagLocation = entry.Value.BagLocation;
 						string result = driveLetter + bagLocation + "\\" + fileName;
 						if (File.Exists(result)) {
 							return result;
@@ -67,18 +69,17 @@ namespace MjFSv2Lib.FileSystem {
 			List<FileInformation> result = new List<FileInformation>();
 			List<string> dupTags = new List<string>();
 			HashSet<string> tags = Helper.GetTagsFromPath(directoryPath);
-			List<Item> items = new List<Item>();
 			List<DriveInfo> deprecateNextList = new List<DriveInfo>();
 
 			foreach (KeyValuePair<string, DatabaseOperations> entry in volMan.MountedBagVolumes) {
 				try {
 					if (directoryPath == "\\") {
 						// Display all tags marked rootVisible from the DB
-						foreach (Tag tag in entry.Value.GetRootTags()) {
-							if (!dupTags.Contains(tag.Id)) {
-								dupTags.Add(tag.Id);
+						foreach (MetaTable tag in entry.Value.GetRootTables()) {
+							if (!dupTags.Contains(tag.tableName)) {
+								dupTags.Add(tag.tableName);
 								FileInformation finfo = new FileInformation();
-								finfo.FileName = Helper.StringToProper(tag.Id);
+								finfo.FileName = Helper.StringToProper(tag.friendlyName);
 								finfo.Attributes = System.IO.FileAttributes.Directory;
 								finfo.LastAccessTime = DateTime.Now;
 								finfo.LastWriteTime = DateTime.Now;
@@ -87,6 +88,22 @@ namespace MjFSv2Lib.FileSystem {
 							}
 						}
 					} else {
+						if (tags.Count == 1) {
+							// This is just a test
+							foreach(ItemMeta item in entry.Value.GetItemsByTableFriendlyName(tags.First<string>())) {
+								FileInformation finfo = new FileInformation();
+								finfo.FileName = item.name + "." + item.ext;
+								finfo.Attributes = (FileAttributes)Enum.Parse(typeof(FileAttributes), item.attr);
+								finfo.LastAccessTime = Convert.ToDateTime(item.lat);
+								finfo.LastWriteTime = Convert.ToDateTime(item.lwt);
+								finfo.CreationTime = Convert.ToDateTime(item.ct);
+								result.Add(finfo);
+							}
+						}
+
+
+
+						/*
 						// Create a set of 'inner tags' by removing the tags already in the path
 						List<string> innerTags = entry.Value.GetInnerTags(tags.ToList()).Except(tags).ToList();
 						// Add the set of innerTags 
@@ -99,11 +116,11 @@ namespace MjFSv2Lib.FileSystem {
 							finfo.CreationTime = DateTime.Now;
 							result.Add(finfo);
 						}
-						items.AddRange(entry.Value.GetItemsByCompositeTag(tags.ToList<string>()));
+						items.AddRange(entry.Value.GetItemsByCompositeTag(tags.ToList<string>()));*/
 					}
 				} catch (SQLiteException ex) {
 					// Display any exceptions, but continue working. We will remove this drive later.
-					DebugLogger.Log(ex.StackTrace + "\n" + ex.Message);
+					MjDebug.Log(ex.StackTrace + "\n" + ex.Message, LogSeverity.MEDIUM);
 					deprecateNextList.Add(new DriveInfo(entry.Key));
 				}
 			}
@@ -111,11 +128,6 @@ namespace MjFSv2Lib.FileSystem {
 			// Unmount any entry that caused an exception
 			foreach (DriveInfo dinfo in deprecateNextList) {
 				volMan.UnmountBagVolume(dinfo.ToString());
-			}
-
-			// Add any found files
-			foreach (Item it in items) {
-				result.Add(Helper.GetFileInformationFromItem(it));
 			}
 
 			return result;

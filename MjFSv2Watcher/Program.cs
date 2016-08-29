@@ -104,7 +104,7 @@ namespace MjFSv2Watcher {
 					KeyValuePair<string, DatabaseOperations> entry = GetBagVolumeInfo(args[0]);
 					Console.WriteLine("Volume: " + entry.Key);
 					Console.WriteLine("Database version: " + entry.Value.GetVersion());
-					Console.WriteLine("Bag location: " + entry.Value.GetBagLocation());
+					Console.WriteLine("Bag location: " + entry.Value.BagLocation);
 				} catch (Exception e) {
 					PrintError(e);
 				}				

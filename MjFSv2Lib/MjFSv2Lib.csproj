@@ -121,7 +121,7 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
-    <Compile Include="Util\DebugLogger.cs" />
+    <Compile Include="Util\MjDebug.cs" />
     <Compile Include="Util\Helper.cs" />
   </ItemGroup>
   <ItemGroup>

@@ -53,7 +53,7 @@ namespace MjFSv2Lib.Manager {
 				}
 			}
 
-			DebugLogger.Log("Logical volumes (un)mounted");
+			MjDebug.Log("Logical volumes (un)mounted");
 			MountBagVolumes(); 
 		}
 
@@ -100,7 +100,7 @@ namespace MjFSv2Lib.Manager {
 					try {
 						foreach (FileInfo finfo in dinfo.RootDirectory.GetFiles()) {
 							if (finfo.Name == CONFIG_FILE_NAME) {
-								DebugLogger.Log("Found bag volume on '" + dinfo + "'");
+								MjDebug.Log("Found bag volume on '" + dinfo + "'");
 								op = dbMan.OpenConnection(dinfo + CONFIG_FILE_NAME); // Open connection
 								result.Add(dinfo.ToString(), op);
 								break;
@@ -108,7 +108,7 @@ namespace MjFSv2Lib.Manager {
 						}
 					} catch (IOException) {
 						// Drive unavailable or not enough rights. This is not critical, log it.
-						DebugLogger.Log("Unable to scan files on drive " + dinfo);
+						MjDebug.Log("Unable to scan files on drive " + dinfo);
 					}
 				}
 			}
@@ -125,7 +125,7 @@ namespace MjFSv2Lib.Manager {
 		}
 
 		public void MountBagVolume(string drive) {
-			DebugLogger.Log("Mounting bag volume on '" + drive + "'");
+			MjDebug.Log("Mounting bag volume on '" + drive + "'");
 			DatabaseOperations op;
 			if (_discoveredBagVolumes.TryGetValue(drive, out op)) {
 				_mountedBagVolumes.Add(drive, op);
@@ -139,7 +139,7 @@ namespace MjFSv2Lib.Manager {
 		/// </summary>
 		/// <param name="drive"></param>
 		public void UnmountBagVolume(string drive) {
-			DebugLogger.Log("Unmounting bag volume on '" + drive + "'");
+			MjDebug.Log("Unmounting bag volume on '" + drive + "'");
 			DatabaseOperations op;
 			if (_discoveredBagVolumes.TryGetValue(drive, out op)) {
 				dbMan.CloseConnection(op);
@@ -189,7 +189,7 @@ namespace MjFSv2Lib.Manager {
 			DiscoverBagVolumes(); // Make sure we have the latest data
 			if (!_discoveredBagVolumes.Keys.Contains(drive.ToUpper())) {
 				DatabaseOperations op = dbMan.OpenConnection(drive + CONFIG_FILE_NAME);				
-				op.AddTables(bagLocation.Substring(3));
+				op.CreateTables(bagLocation.Substring(3));
 				//op.UpdateHash();
 				_discoveredBagVolumes.Add(drive.ToUpper(), op);
 				return op;
