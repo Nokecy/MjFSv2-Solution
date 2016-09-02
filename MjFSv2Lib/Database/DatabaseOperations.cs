@@ -16,6 +16,7 @@ namespace MjFSv2Lib.Database {
 	/// Represents a database connection including all allowed operations on the database.
 	/// </summary>
 	public class DatabaseOperations {
+		[Obsolete]
 		private readonly SQLiteConnection _connection;
 		private readonly EntityContext _context;
 		private string _bagPath;
@@ -43,25 +44,22 @@ namespace MjFSv2Lib.Database {
 			}		
         }
 
-		public bool TableExists(string tableName) {
-			SQLiteCommand cmd = new SQLiteCommand(_connection);
-			cmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name = @tableName";
-			cmd.Prepare();
-			cmd.Parameters.AddWithValue("@tableName", tableName);
-			SQLiteDataReader r = cmd.ExecuteReader();
-			return r.Read();
+		/// <summary>
+		/// Populate the database with tables by running the SQL creation script. Additionally, some configuration info will be injected in the database.
+		/// </summary>
+		/// <param name="bagLocation">The location of the bag relative to the drive. E.g. X:\folder\bag\. The drive letter must be included.</param>
+		public void CreateTables(string bagLocation) {
+			_bagPath = bagLocation; // Build current bag location from drive and bag path
+			_context.Database.ExecuteSqlCommand(Properties.Resources.database, new SQLiteParameter("@defaultBag", _bagPath)); // Insert bagPath into table creation script and execute			
 		}
 
 		// Hack
 		public int InsertTableRow(TableRow row) {
 			if (row != null) {
-				StringBuilder sb;
-				Dictionary<string, string> columns;
-
+				StringBuilder sb;	
 				using (row) {
 					sb = new StringBuilder("INSERT INTO " + row.TableName + " (");
-					columns = row.Columns;
-
+					Dictionary<string, string> columns = row.Columns;
 					int i = 0;
 					foreach (string columnName in columns.Keys) {
 						sb.Append("\"" + columnName + "\"");
@@ -82,10 +80,7 @@ namespace MjFSv2Lib.Database {
 					}
 					sb.Append(")");
 				}
-				SQLiteCommand cmd = new SQLiteCommand(_connection);
-				cmd.CommandText = sb.ToString();
-				cmd.Prepare();
-				return cmd.ExecuteNonQuery();
+				return _context.Database.ExecuteSqlCommand(sb.ToString());
 			} else {
 				return -1;
 			}	
@@ -113,27 +108,63 @@ namespace MjFSv2Lib.Database {
 		}
 
 		/// <summary>
-		/// Retrieve the list of all items in the table with this friendly name
+		/// Get the MetaTable object for the given friendly name.
 		/// </summary>
 		/// <param name="friendlyTableName"></param>
 		/// <returns></returns>
-		public List<ItemMeta> GetItemsByTableFriendlyName(string friendlyTableName) {
+		public MetaTable GetTableByFriendlyName(string friendlyTableName) {
 			var tables = from metaTable in _context.MetaTables
 						where metaTable.friendlyName.ToLower() == friendlyTableName
 						select metaTable;
 
 			if (tables.Count<MetaTable>() == 0) {
-				return new List<ItemMeta>();
+				return null;
 			}
 			MetaTable table = tables.First<MetaTable>(); // Friendlynames are unique
-			return GetItemsByTableName(table.tableName);
+			return table;
 		}
 
-		public List<ItemMeta> GetItemsByTableName(string tableName) {
-			var items = _context.Database.SqlQuery<ItemMeta>("SELECT DISTINCT * FROM ItemMeta WHERE itemId IN " + tableName);
+		/// <summary>
+		/// Retrieve a list of all items contained in the given table.
+		/// </summary>
+		/// <param name="tableName"></param>
+		/// <returns></returns>
+		public List<ItemMeta> GetItems(string tableName) {
+			var items = _context.Database.SqlQuery<ItemMeta>("SELECT * FROM ItemMeta WHERE itemId IN " + tableName);
 			return items.ToList<ItemMeta>();
 		}
 
+		/// <summary>
+		/// Retrieve a list of all tables extending the table with the given name.
+		/// </summary>
+		/// <param name="tableName"></param>
+		/// <returns></returns>
+		public List<MetaTable> GetExtendingTables(string tableName) {
+			var tables = from metaTables in _context.MetaTables
+						 where metaTables.extends == tableName
+						 select metaTables;
+			return tables.ToList<MetaTable>();
+		}
+
+		public List<MetaAlias> GetAliases(string tableName) {
+			var aliases = from metaAliases in _context.MetaAlias
+						  where metaAliases.MetaTable.tableName == tableName
+						  select metaAliases;
+			return aliases.ToList<MetaAlias>();
+		}
+
+
+		/* EVERYTHING BELOW THIS LINE IS OBSOLETE AND TO BE REMOVED AT A LATER STAGE. DO NOT USE. */
+
+		[Obsolete]
+		public bool TableExists(string tableName) {
+			SQLiteCommand cmd = new SQLiteCommand(_connection);
+			cmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name = @tableName";
+			cmd.Prepare();
+			cmd.Parameters.AddWithValue("@tableName", tableName);
+			SQLiteDataReader r = cmd.ExecuteReader();
+			return r.Read();
+		}
 
 		[Obsolete]
 		public Item GetItem(string id) {
@@ -291,26 +322,14 @@ namespace MjFSv2Lib.Database {
 			return cmd.ExecuteNonQuery();
 		}
 
-		
+		[Obsolete]
 		public int UpdateItem(Item item) {
-			SQLiteCommand cmd = new SQLiteCommand(_connection);
-			cmd.CommandText = "UPDATE `Item` SET name = @name, ext = @ext, size=@size WHERE id = @id;";
-			cmd.Prepare();
-			cmd.Parameters.AddWithValue("@id", item.Id);
-			cmd.Parameters.AddWithValue("@name", item.Name);
-			cmd.Parameters.AddWithValue("@ext", item.Extension);
-			cmd.Parameters.AddWithValue("@size", item.Size);
-			return cmd.ExecuteNonQuery();
-		}
-
-
-		/// <summary>
-		/// Populate the database with tables by running the SQL creation script. Additionally, some configuration info will be injected in the database.
-		/// </summary>
-		/// <param name="bagLocation">The location of the bag relative to the drive. E.g. folder\bag\. Do not include the drive letter here.</param>
-		public void CreateTables(string bagLocation) {
-			_bagPath = Path.GetPathRoot(_connection.FileName) + bagLocation; // Build current bag location from drive and bag path
-			_context.Database.ExecuteSqlCommand(Properties.Resources.database, new SQLiteParameter("@defaultBag", _bagPath)); // Insert bagPath into table creation script and execute			
+			return _context.Database.ExecuteSqlCommand("UPDATE `Item` SET name = @name, ext = @ext, size=@size WHERE id = @id",
+				new SQLiteParameter("@id", item.Id),
+				new SQLiteParameter("@name", item.Name),
+				new SQLiteParameter("@ext", item.Extension),
+				new SQLiteParameter("@size", item.Size)
+				);
 		}
 
 		public int TruncateTable(string tableName) {

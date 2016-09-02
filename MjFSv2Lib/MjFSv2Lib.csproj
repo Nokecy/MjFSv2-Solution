@@ -92,7 +92,7 @@
     <Compile Include="Domain\DocumentMeta.cs" />
     <Compile Include="Domain\EntityContext.cs" />
     <Compile Include="Domain\ItemMeta.cs" />
-    <Compile Include="Domain\MetaAlia.cs" />
+    <Compile Include="Domain\MetaAlias.cs" />
     <Compile Include="Domain\MetaTable.cs" />
     <Compile Include="Domain\MiscMeta.cs" />
     <Compile Include="Domain\MusicExtMeta.cs" />

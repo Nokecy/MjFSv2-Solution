@@ -88,9 +88,12 @@ namespace MjFSv2Lib.FileSystem {
 							}
 						}
 					} else {
+						DatabaseOperations op = entry.Value;
+						MetaTable table = op.GetTableByFriendlyName(tags.First<string>());
+
 						if (tags.Count == 1) {
-							// This is just a test
-							foreach(ItemMeta item in entry.Value.GetItemsByTableFriendlyName(tags.First<string>())) {
+							// TODO: this is just a test
+							foreach(ItemMeta item in op.GetItems(table.tableName)) {
 								FileInformation finfo = new FileInformation();
 								finfo.FileName = item.name + "." + item.ext;
 								finfo.Attributes = (FileAttributes)Enum.Parse(typeof(FileAttributes), item.attr);
@@ -99,7 +102,28 @@ namespace MjFSv2Lib.FileSystem {
 								finfo.CreationTime = Convert.ToDateTime(item.ct);
 								result.Add(finfo);
 							}
+
+							List<MetaTable> tables = op.GetExtendingTables(table.tableName);
+							tables.Add(table);
+
+							// Create a set of folders to further sort the items 
+							foreach (MetaTable extTable in tables) {
+								foreach(MetaAlias alias in op.GetAliases(extTable.tableName)) {
+									// Add a folder for this alias
+									FileInformation finfo = new FileInformation();
+									finfo.FileName = "By " + alias.alias;
+									finfo.Attributes = System.IO.FileAttributes.Directory;
+									finfo.LastAccessTime = DateTime.Now;
+									finfo.LastWriteTime = DateTime.Now;
+									finfo.CreationTime = DateTime.Now;
+									result.Add(finfo);
+								}
+							}
+
 						}
+
+
+
 
 
 

@@ -16,7 +16,7 @@ namespace MjFSv2Lib.Domain {
 
 		public virtual DbSet<DocumentMeta> DocumentMetas { get; set; }
 		public virtual DbSet<ItemMeta> ItemMetas { get; set; }
-		public virtual DbSet<MetaAlia> MetaAlias { get; set; }
+		public virtual DbSet<MetaAlias> MetaAlias { get; set; }
 		public virtual DbSet<MetaTable> MetaTables { get; set; }
 		public virtual DbSet<MiscMeta> MiscMetas { get; set; }
 		public virtual DbSet<MusicExtMeta> MusicExtMetas { get; set; }

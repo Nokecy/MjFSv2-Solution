@@ -11,7 +11,7 @@ namespace MjFSv2Lib.Domain
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2214:DoNotCallOverridableMethodsInConstructors")]
         public MetaTable()
         {
-            MetaAlias = new HashSet<MetaAlia>();
+            MetaAlias = new HashSet<MetaAlias>();
             MetaTables1 = new HashSet<MetaTable>();
         }
 
@@ -28,7 +28,7 @@ namespace MjFSv2Lib.Domain
         public string extends { get; set; }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
-        public virtual ICollection<MetaAlia> MetaAlias { get; set; }
+        public virtual ICollection<MetaAlias> MetaAlias { get; set; }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
         public virtual ICollection<MetaTable> MetaTables1 { get; set; }

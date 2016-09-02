@@ -189,8 +189,7 @@ namespace MjFSv2Lib.Manager {
 			DiscoverBagVolumes(); // Make sure we have the latest data
 			if (!_discoveredBagVolumes.Keys.Contains(drive.ToUpper())) {
 				DatabaseOperations op = dbMan.OpenConnection(drive + CONFIG_FILE_NAME);				
-				op.CreateTables(bagLocation.Substring(3));
-				//op.UpdateHash();
+				op.CreateTables(drive + "\\" + bagLocation.Substring(3));
 				_discoveredBagVolumes.Add(drive.ToUpper(), op);
 				return op;
 			} else {
